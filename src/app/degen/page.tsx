@@ -1,37 +1,45 @@
-"use client";
+import BuySection from "@/components/BuySection";
 
-import "./page.css";
+export const metadata = {
+  title: "Degen — Future Creatives",
+  description: "Get in at the founding layer, before the rails are set.",
+};
 
+/**
+ * Structure is in place and matches the other two persona pages
+ * (character → problem → plan → what's at stake → how). Copy is still
+ * outstanding — drop it into the marked sections and wrap each multi-paragraph
+ * body in <ReadMore>, same as /philanthropist and /impact-investor.
+ */
 export default function DegenPage() {
   return (
-    <main className="persona-page">
-      {/* HEADLINE */}
-      <section className="section-full section-dark headline-section">
-        <div className="content-max">
-          <h1 className="type-display">Degen</h1>
-          <p className="subheading">
-            Own a piece of the culture you believe in.
-          </p>
+    <main>
+      <section className="section section--dark hero">
+        <div className="wrap">
+          <span className="label">The Degen</span>
+          <h1 className="display display--sm">
+            Get in at the founding layer, before the rails are set
+          </h1>
         </div>
       </section>
 
-      {/* Coming Soon */}
-      <section className="section-full section-light">
-        <div className="content-max">
-          <p className="type-body">
-            This page is coming soon. The Degen persona content will be added here.
+      <section className="section section--light">
+        <div className="wrap">
+          <span className="label">Copy pending</span>
+          <p className="lead">
+            This page is built and routed. It needs its words.
           </p>
+          <div className="callout">
+            <p>
+              Send the Degen copy in the same shape as the other two personas
+              &mdash; the character, the problem, the plan, what&rsquo;s at
+              stake, and how &mdash; and it drops straight in.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="section-full section-light cta-section">
-        <div className="content-max">
-          <a href="#get-belief-token" className="btn-cta">
-            Get Belief Token
-          </a>
-        </div>
-      </section>
+      <BuySection note="Placeholder — links to the NFT purchase flow" />
     </main>
   );
 }

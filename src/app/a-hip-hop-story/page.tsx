@@ -1,37 +1,42 @@
-"use client";
+import BuySection from "@/components/BuySection";
 
-import "./page.css";
+export const metadata = {
+  title: "A Hip Hop Story — Future Creatives",
+  description:
+    "The first project built with the model. 25 years since it premiered, in 2028.",
+};
 
+/**
+ * The project page. Structure is in place and routed; copy is still
+ * outstanding. Wrap each multi-paragraph body in <ReadMore> when it lands.
+ */
 export default function HipHopStoryPage() {
   return (
-    <main className="persona-page">
-      {/* HEADLINE */}
-      <section className="section-full section-dark headline-section">
-        <div className="content-max">
-          <h1 className="type-display">A Hip Hop Story</h1>
-          <p className="subheading">
-            25 years, 2028 and you.
-          </p>
+    <main>
+      <section className="section section--dark hero">
+        <div className="wrap">
+          <span className="label">The Project</span>
+          <h1 className="display display--sm">A Hip Hop Story</h1>
         </div>
       </section>
 
-      {/* Coming Soon */}
-      <section className="section-full section-light">
-        <div className="content-max">
-          <p className="type-body">
-            This page is coming soon. The Hip Hop Story project details will be added here.
+      <section className="section section--light">
+        <div className="wrap">
+          <span className="label">Copy pending</span>
+          <p className="lead">
+            The live show and the roadmap, built with the exact model
+            we&rsquo;re inviting you into.
           </p>
+          <div className="callout">
+            <p>
+              Celebrating its 25th anniversary in 2028 since it premiered. Send
+              the project copy and it drops straight in.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="section-full section-light cta-section">
-        <div className="content-max">
-          <a href="#get-belief-token" className="btn-cta">
-            Get Belief Token
-          </a>
-        </div>
-      </section>
+      <BuySection note="Placeholder — links to the NFT purchase flow" />
     </main>
   );
 }

@@ -2,161 +2,564 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light dark;
+/* ==========================================================================
+   FUTURE CREATIVES — Afrofuturist Brutalism
+   Sharp edges. Flat colour. The copy is the design.
+   ========================================================================== */
 
-  /* Future Creatives Brutalism Color System */
-  --color-purple-dark: #2d0054;
-  --color-orange: #ff5500;
-  --color-gold: #d4a017;
-  --color-midnight: #0e0018;
-  --color-off-white: #f5f0ea;
+:root {
+  --purple: #2d0054;
+  --orange: #ff5500;
+  --gold: #d4a017;
+  --midnight: #0e0018;
+  --offwhite: #f5f0ea;
+
+  --nav-h: 68px;
+  --measure: 720px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0; /* brutalist: nothing is ever round */
 }
 
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--font-body);
-  font-weight: 300;
-  line-height: 1.7;
-  color: var(--color-midnight);
-  background-color: var(--color-off-white);
   margin: 0;
+  background: var(--offwhite);
+  color: var(--midnight);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-weight: 300;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 1.125rem;
+  }
+}
+
+/* ---------- Type scale ------------------------------------------------- */
+
+.display {
+  font-family: var(--font-display), cursive;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  margin: 0;
+  font-size: clamp(2.75rem, 12vw, 5.5rem);
+}
+
+.display--sm {
+  font-size: clamp(2rem, 8vw, 3.25rem);
+}
+
+.label {
+  font-family: var(--font-utility), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin: 0 0 1.5rem;
+  display: block;
+}
+
+.lead {
+  font-family: var(--font-body), sans-serif;
+  font-weight: 500;
+  font-size: clamp(1.375rem, 4.5vw, 1.875rem);
+  line-height: 1.35;
+  margin: 0 0 1.75rem;
+}
+
+.shout {
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  font-size: clamp(1.0625rem, 3.6vw, 1.5rem);
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  margin: 0 0 1rem;
+}
+
+.body-text p {
+  margin: 0 0 1.25rem;
+}
+
+.body-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Sections --------------------------------------------------- */
+
+.section {
+  padding: 4.5rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .section {
+    padding: 7rem 2rem;
+  }
+}
+
+.section--dark {
+  background: var(--purple);
+  color: var(--offwhite);
+}
+
+.section--light {
+  background: var(--offwhite);
+  color: var(--midnight);
+}
+
+.section--ink {
+  background: var(--midnight);
+  color: var(--offwhite);
+}
+
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+}
+
+/* ---------- Hero ------------------------------------------------------- */
+
+.hero {
+  min-height: calc(78vh - var(--nav-h));
+  display: flex;
+  align-items: center;
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+
+.hero__cycle {
+  color: var(--orange);
+  display: inline-block;
+}
+
+/* One subtle fade on load. Nothing else moves. */
+.page-in {
+  animation: fade-in 420ms ease-out both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-in {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ---------- Callout (gold) --------------------------------------------- */
+
+.callout {
+  border-left: 6px solid var(--gold);
+  padding: 1.5rem 1.5rem 1.5rem 1.75rem;
+  margin: 2.5rem 0;
+  background: rgba(212, 160, 23, 0.08);
+}
+
+.callout p {
+  margin: 0;
+}
+
+.callout p + p {
+  margin-top: 1rem;
+}
+
+/* ---------- Lists: plan items / steps ---------------------------------- */
+
+.stack {
+  list-style: none;
+  margin: 2.5rem 0;
   padding: 0;
 }
 
-/* Dark sections */
-.section-dark {
-  background-color: var(--color-purple-dark);
-  color: var(--color-off-white);
+.stack li {
+  border-top: 2px solid currentColor;
+  padding: 1.25rem 0;
 }
 
-.section-light {
-  background-color: var(--color-off-white);
-  color: var(--color-midnight);
+.stack li:last-child {
+  border-bottom: 2px solid currentColor;
 }
 
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+.stack__term {
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.8125rem;
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--orange);
+}
+
+.section--light .stack li {
+  border-color: rgba(14, 0, 24, 0.18);
+}
+
+.section--dark .stack li,
+.section--ink .stack li {
+  border-color: rgba(245, 240, 234, 0.22);
+}
+
+/* ---------- Persona cards (no ReadMore, ever) -------------------------- */
+
+.routes {
+  display: grid;
+  gap: 2px;
+  margin-top: 3rem;
+  background: var(--orange);
+  border: 2px solid var(--orange);
+}
+
+@media (min-width: 800px) {
+  .routes {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.route-card {
+  background: var(--purple);
+  color: var(--offwhite);
+  text-decoration: none;
+  padding: 2rem 1.75rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: background 140ms linear, color 140ms linear;
+}
+
+.route-card:hover,
+.route-card:focus-visible {
+  background: var(--orange);
+  color: var(--midnight);
+}
+
+.route-card__name {
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.9375rem;
   margin: 0;
-  line-height: 1.2;
 }
 
-/* Display font (Bangers) — commanding, uppercase feel */
-.type-display {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 8vw, 4rem);
-  line-height: 1.1;
+.route-card__line {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
-/* Utility font (Space Mono) — section labels, nav, metadata */
-.type-utility {
-  font-family: var(--font-utility);
-  letter-spacing: 0.125em;
-  font-size: 0.875rem;
+.route-card__go {
+  font-family: var(--font-utility), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--orange);
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.route-card:hover .route-card__go,
+.route-card:focus-visible .route-card__go {
+  color: var(--midnight);
+}
+
+/* ---------- Buy button (gold, ends every page) ------------------------- */
+
+.buy {
+  display: block;
+  width: 100%;
+  background: var(--gold);
+  color: var(--midnight);
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  padding: 1.5rem 2rem;
+  border: none;
+  cursor: pointer;
+  transition: background 140ms linear;
+}
+
+.buy:hover,
+.buy:focus-visible {
+  background: #e8b31c;
+}
+
+@media (min-width: 560px) {
+  .buy {
+    width: auto;
+    display: inline-block;
+    min-width: 340px;
+  }
+}
+
+.buy-note {
+  font-family: var(--font-utility), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin: 1.25rem 0 0;
+}
+
+/* ---------- Footer ----------------------------------------------------- */
+
+.foot {
+  background: var(--midnight);
+  color: rgba(245, 240, 234, 0.55);
+  padding: 2.5rem 1.5rem;
+  font-family: var(--font-utility), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
-/* Body text */
-.type-body {
-  font-family: var(--font-body);
-  font-weight: 300;
-  line-height: 1.7;
-  font-size: 1rem;
+.foot .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  justify-content: space-between;
 }
 
-/* Read more component styling */
-.read-more-content {
+::selection {
+  background: var(--orange);
+  color: var(--offwhite);
+}
+
+/* ---------- ReadMore --------------------------------------------------- */
+
+.readmore {
+  margin: 0;
+}
+
+.readmore__clip {
   overflow: hidden;
   transition: max-height 200ms ease;
 }
 
-.read-more-toggle {
-  font-family: var(--font-utility);
-  color: var(--color-orange);
-  letter-spacing: 0.125em;
-  font-size: 0.875rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem 0;
-  text-transform: uppercase;
-}
-
-.read-more-toggle:hover {
-  opacity: 0.8;
-}
-
-/* CTA Button */
-.btn-cta {
-  display: block;
-  width: 100%;
-  background-color: var(--color-orange);
-  color: white;
-  padding: 1.5rem 2rem;
-  font-family: var(--font-utility);
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  text-align: center;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  margin-top: 3rem;
-}
-
-.btn-cta:hover {
-  opacity: 0.9;
-}
-
-/* Callout boxes */
-.callout {
-  border-left: 4px solid var(--color-gold);
-  padding: 1.5rem;
-  background-color: rgba(212, 160, 23, 0.05);
-}
-
-/* Section layout — max content width 720px */
-.content-max {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-}
-
-/* Full-bleed sections */
-.section-full {
-  width: 100%;
-  padding: 4rem 1.5rem;
-}
-
-@media (min-width: 768px) {
-  .section-full {
-    padding: 6rem 1.5rem;
+@media (prefers-reduced-motion: reduce) {
+  .readmore__clip {
+    transition: none;
   }
 }
 
-/* Utility classes */
-.no-margin {
+.readmore__toggle {
+  font-family: var(--font-utility), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--orange);
+  background: none;
+  border: none;
+  padding: 0.9rem 0 0;
   margin: 0;
+  cursor: pointer;
+  display: inline-block;
 }
 
-.mt-3 {
-  margin-top: 3rem;
+.readmore__toggle:hover,
+.readmore__toggle:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
-.mt-2 {
+/* ---------- Nav: sticky, semi-transparent, blurs what passes under ------ */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* The blur lives on the bar, not on .nav. A backdrop-filter makes an element
+   the containing block for its position:fixed descendants — with it on .nav,
+   the mobile drawer gets trapped inside the 68px header instead of filling
+   the viewport. */
+.nav__bar {
+  height: var(--nav-h);
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: rgba(45, 0, 84, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 2px solid var(--orange);
+}
+
+/* Browsers without backdrop-filter get the flat purple instead of a wash. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav__bar {
+    background: var(--purple);
+  }
+}
+
+.nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.nav__wordmark {
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--offwhite);
+  white-space: nowrap;
+}
+
+.nav__links {
+  display: none;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.nav__link {
+  font-family: var(--font-utility), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--offwhite);
+  text-decoration: none;
+  padding-bottom: 3px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.nav__link:hover {
+  color: var(--orange);
+}
+
+.nav__link.is-current {
+  border-bottom-color: var(--orange);
+}
+
+.nav__buy {
+  display: none;
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: var(--gold);
+  color: var(--midnight);
+  text-decoration: none;
+  padding: 0.7rem 1.1rem;
+}
+
+.nav__buy:hover {
+  background: #e8b31c;
+}
+
+@media (min-width: 1080px) {
+  .nav__links,
+  .nav__buy {
+    display: flex;
+  }
+  .nav__burger {
+    display: none;
+  }
+}
+
+/* Hamburger */
+
+.nav__burger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  width: 44px;
+  height: 44px;
+  padding: 0 9px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.nav__burger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--offwhite);
+  transition: transform 180ms ease, opacity 120ms linear;
+}
+
+.nav__burger.is-open span:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.nav__burger.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.nav__burger.is-open span:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+/* Drawer */
+
+.nav__drawer {
+  position: fixed;
+  inset: var(--nav-h) 0 0;
+  background: var(--purple);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+@media (min-width: 1080px) {
+  .nav__drawer {
+    display: none;
+  }
+}
+
+.nav__drawer-link {
+  font-family: var(--font-utility), monospace;
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--offwhite);
+  text-decoration: none;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid rgba(245, 240, 234, 0.16);
+}
+
+.nav__drawer-link.is-current {
+  color: var(--orange);
+  border-bottom-color: var(--orange);
+}
+
+.nav__drawer-buy {
   margin-top: 2rem;
-}
-
-.mb-2 {
-  margin-bottom: 2rem;
-}
-
-.text-center {
-  text-align: center;
+  width: 100%;
 }

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Future Creatives">
+  <g stroke="#D4A017" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- stem, rising into the top arm -->
+    <path d="M19 55V19a8 8 0 0 1 8-8h13"/>
+    <!-- middle arm -->
+    <path d="M19 32h16"/>
+  </g>
+</svg>
