@@ -1,8 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Future Creatives">
-  <g stroke="#D4A017" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <!-- stem, rising into the top arm -->
-    <path d="M19 55V19a8 8 0 0 1 8-8h13"/>
-    <!-- middle arm -->
-    <path d="M19 32h16"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Future Creatives">
+  <rect width="64" height="64" fill="#1E0B2E"/>
+  <circle cx="32" cy="32" r="25" fill="#2A1240"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- gold tube -->
+    <g stroke="#D4A017" stroke-width="14">
+      <path d="M22 54V24a10 10 0 0 1 10-10h11"/>
+      <path d="M22 34h14"/>
+    </g>
+    <!-- dark core, giving the outlined-tube read -->
+    <g stroke="#1E0B2E" stroke-width="7">
+      <path d="M22 54V24a10 10 0 0 1 10-10h11"/>
+      <path d="M22 34h14"/>
+    </g>
   </g>
 </svg>

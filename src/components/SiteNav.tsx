@@ -32,7 +32,7 @@ export default function SiteNav() {
     <header className="nav">
       <div className="nav__bar">
         <Link href="/" className="nav__brand">
-          <Image src="/logo.svg" alt="" width={30} height={30} priority />
+          <Image src="/logo.svg" alt="" width={36} height={36} priority />
           <span className="nav__wordmark">Future Creatives</span>
         </Link>
 
