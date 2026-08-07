@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BuySection from "@/components/BuySection";
+import ShaderHero from "@/components/ui/hero";
 import ReadMore from "@/components/ReadMore";
 
 const CYCLE = ["culture", "arts", "entertainment"];
@@ -11,12 +12,12 @@ const ROUTES = [
   {
     href: "/philanthropist",
     name: "Philanthropist",
-    line: "You fund culture because you believe it should exist. Make the gift keep working.",
+    line: "You fund culture because you believe it should exist.",
   },
   {
     href: "/impact-investor",
     name: "Impact Investor",
-    line: "Your capital can't make a return if it can't make a difference.",
+    line: "Your capital can't make a return if you can't make a difference.",
   },
   {
     href: "/degen",
@@ -36,14 +37,12 @@ export default function MasterPage() {
   return (
     <main>
       {/* ---- Hero ---------------------------------------------------- */}
-      <section className="section section--dark hero">
-        <div className="wrap">
-          <h1 className="display">
-            You now have the power to shape{" "}
-            <span className="hero__cycle">{CYCLE[i]}</span>
-          </h1>
-        </div>
-      </section>
+      <ShaderHero>
+        <h1 className="display">
+          You now have the power to shape{" "}
+          <span className="hero__cycle">{CYCLE[i]}</span>
+        </h1>
+      </ShaderHero>
 
       {/* ---- Clarity ------------------------------------------------- */}
       <section className="section section--light">
@@ -53,10 +52,9 @@ export default function MasterPage() {
           <ReadMore>
             <p>
               Future Creatives enables you to shape culture, the arts and
-              entertainment you want to experience. We use decentralised
-              finance, demand driven culture and community ownership to make the
-              creative industries more dynamic, transparent &amp; financially
-              sustainable.
+              entertainment you want to experience. We use decentralised finance,
+              demand driven culture and community ownership to make the creative
+              industries more dynamic, transparent &amp; financially sustainable.
             </p>
             <p>
               You get access to build and support real projects, from music to
@@ -69,10 +67,9 @@ export default function MasterPage() {
         </div>
       </section>
 
-      {/* ---- Authority ----------------------------------------------- */}
+      {/* ---- Why us -------------------------------------------------- */}
       <section className="section section--dark">
         <div className="wrap">
-          <span className="label">Authority</span>
           <h2 className="lead">Why us?</h2>
           <ReadMore>
             <p>
@@ -100,30 +97,32 @@ export default function MasterPage() {
         </div>
       </section>
 
-      {/* ---- Problem ------------------------------------------------- */}
+      {/* ---- What we're solving -------------------------------------- */}
       <section className="section section--light">
         <div className="wrap">
-          <span className="label">The Problem</span>
           <h2 className="lead">What we&rsquo;re solving</h2>
           <ReadMore>
             <p>
-              The system that develops, funds and distributes subsidised
-              culture, the arts and entertainment is collapsing faster than it
-              ever has before.
+              The system that develops, funds and distributes subsidised culture,
+              the arts and entertainment is collapsing faster than it ever has
+              before.
             </p>
             <p>
               Culture will never stop mattering. On average people spend 5 hours
               a day consuming culture, the arts and entertainment during leisure
-              time. It&rsquo;s how we learn, connect, express, resist and imagine
-              together.
+              time.
             </p>
             <p>
-              Around 90% of projects in the subsidised creative sector get left
-              on the scrap heap, rejected by a panel deciding what&rsquo;s worthy
-              based on their remit and criteria. We get it, organisations have
-              the right to have their own objectives however, this leaves
-              1000&rsquo;s of projects to fall through the gaps. That rejection
-              pile is where the potential gold is buried.
+              It&rsquo;s how we learn, connect, express, resist and imagine
+              together. Around 90% of projects in the subsidised creative sector
+              get left on the scrap heap, rejected by a panel deciding
+              what&rsquo;s worthy based on their remit and criteria.
+            </p>
+            <p>
+              We get it, organisations have the right to have their own
+              objectives however, this leaves 1000&rsquo;s of projects to fall
+              through the gaps. That rejection pile is where the potential gold
+              is buried.
             </p>
             <p>
               The next Hamilton, Sinners or Billie Eilish, who all received
@@ -134,14 +133,14 @@ export default function MasterPage() {
               Diverse work doesn&rsquo;t get made, artists can&rsquo;t afford to
               take risks and fans and audiences experience a curated shortlist
               made possible with their taxes, philanthropy and investment but
-              without their input of what and who wins or loses.
+              without their input of what/who wins or loses.
             </p>
             <p>
-              Again we get it, we can&rsquo;t expect institutions to solve
-              everything, especially the things they aren&rsquo;t set up to do.
-              Funds and resources are scarce. This model worked because someone
-              has to make the decision of who wins and loses, and they make the
-              decisions for the institution they represent. This means the
+              Again we get it, we can&rsquo;t expect Institutions to solve
+              everything especially the things they aren&rsquo;t set up to do.
+              Funds and resources are scarce, this model worked because someone
+              has to make the decision of who wins and loses and they make the
+              decisions for the institution they represent, this means the
               audiences and artists don&rsquo;t always feel they get it right.
             </p>
             <p>
@@ -152,16 +151,15 @@ export default function MasterPage() {
         </div>
       </section>
 
-      {/* ---- Solution ------------------------------------------------ */}
+      {/* ---- Our solution -------------------------------------------- */}
       <section className="section section--dark">
         <div className="wrap">
-          <span className="label">Our Solution</span>
-          <h2 className="lead">We are releasing more of the locked 90%</h2>
+          <h2 className="lead">Our solution</h2>
           <ReadMore>
             <p>
-              Future Creatives flips the top down approach by decentralising the
-              approach to increase the freedom of ideas and their funding and
-              distribution.
+              We are releasing more of the locked 90% because Future Creatives
+              flips the top down approach by decentralising the approach to
+              increase the freedom of ideas and their funding and distribution.
             </p>
             <p>
               The crowd commissions what gets made, so demand comes first,
@@ -175,13 +173,10 @@ export default function MasterPage() {
         </div>
       </section>
 
-      {/* ---- The Why ------------------------------------------------- */}
+      {/* ---- The why -------------------------------------------------- */}
       <section className="section section--light">
         <div className="wrap">
-          <span className="label">The Why</span>
-          <h2 className="lead">
-            Culture&rsquo;s being compromised
-          </h2>
+          <h2 className="lead">The why</h2>
           <ReadMore>
             <p>
               At the core we believe in helping people make and experience work
@@ -189,26 +184,33 @@ export default function MasterPage() {
               else&rsquo;s gain.
             </p>
             <p>
-              Because 20&ndash;25% of our waking hours are taken up by leisure,
-              which includes the arts, culture and entertainment, we want more to
-              be made that is demand driven and built &amp; validated by the
+              Because 20-25% of our waking hours are taken up by leisure, which
+              includes the arts, culture and entertainment, we want more to be
+              made that is demand driven and built &amp; validated by the
               backers, fans and audiences it is intended for.
             </p>
             <p>
-              The niche work that takes risks, that lives on the edge before
-              institutions find it, that refuses to be safe, is disappearing
-              because it&rsquo;s starved of funding. We believe people don&rsquo;t
-              notice it disappearing because they think they love brands,
-              platforms or an artist, when what they love is culture itself.
+              Culture&rsquo;s being compromised. The niche work that takes risks,
+              that lives on the edge before institutions find it, that refuses to
+              be safe, is disappearing because it&rsquo;s starved of funding.
+            </p>
+            <p>
+              We believe people don&rsquo;t notice it disappearing because they
+              think they love brands, platforms or an artist, when what they love
+              is culture itself.
+            </p>
+            <p>
               Commercialisation and risk averse programming hands more or less
               the same thing to fans on repeat.
             </p>
             <p>
               We have been here long enough to know the current model means that
               many venues continue to struggle to survive on 1/3 philanthropy,
-              1/3 ticket sales and 1/3 funding. They will close. Artists barely
-              survive whilst waiting for permission to create, and fans wait to
-              have excellence chosen for them for their shortlist.
+              1/3 ticket sales and 1/3 funding. They will close.
+            </p>
+            <p>
+              Artists barely survive whilst waiting for permission to create and
+              fans wait to have excellence chosen for them for their shortlist.
             </p>
             <p>
               We believe audiences, fans, backers and artists should practically
@@ -225,32 +227,29 @@ export default function MasterPage() {
         </div>
       </section>
 
-      {/* ---- Opportunity --------------------------------------------- */}
+      {/* ---- Your opportunity ----------------------------------------- */}
       <section className="section section--dark">
         <div className="wrap">
-          <span className="label">Your Opportunity</span>
-          <h2 className="lead">
-            Get in early to shape how culture, arts and entertainment get
-            created, funded and owned
-          </h2>
+          <h2 className="lead">Your opportunity</h2>
           <ReadMore>
-            <p>Define your version of excellence.</p>
+            <p>
+              Get in early to shape how culture, arts and entertainment get
+              created, funded and owned. Define your version of excellence.
+            </p>
             <p>
               You experience the ecosystem forming around you, fractionally own
-              what you help bring to life &mdash; albums, stage shows, venues and
-              creative spaces &mdash; and you commission projects you believe in,
-              back artists directly and own alongside the culture you want to
-              exist.
+              what you help bring to life, albums, stage shows, venues and
+              creative spaces and you commission projects you believe in, back
+              artists directly and own alongside the culture you want to exist.
             </p>
           </ReadMore>
         </div>
       </section>
 
-      {/* ---- Find your route in -------------------------------------- */}
+      {/* ---- Find your route in --------------------------------------- */}
       <section className="section section--light">
         <div className="wrap">
           <span className="label">Find your route in</span>
-          <h2 className="lead">Three ways to take a position</h2>
 
           <div className="routes">
             {ROUTES.map(({ href, name, line }) => (
@@ -264,26 +263,26 @@ export default function MasterPage() {
         </div>
       </section>
 
-      {/* ---- Next steps ---------------------------------------------- */}
+      {/* ---- Next steps ----------------------------------------------- */}
       <section className="section section--dark">
         <div className="wrap">
-          <span className="label">Next Steps</span>
-          <p className="lead">
+          <h2 className="lead">Next steps</h2>
+          <p className="type-body">
             Get your belief token now. Shape the future of culture from day one.
           </p>
         </div>
       </section>
 
-      {/* ---- Essence -------------------------------------------------- */}
+      {/* ---- Essence --------------------------------------------------- */}
       <section className="section section--light">
         <div className="wrap">
-          <span className="label">Essence</span>
-          <p className="lead">You become the reason:</p>
+          <h2 className="lead">Essence</h2>
+          <p className="shout">You become the reason:</p>
 
           <ul className="stack">
             <li>25% of your leisure time gets upgraded</li>
             <li>Someone discovers the thing that moves them</li>
-            <li>You share culture with people who may never have found it</li>
+            <li>You share culture with people who may never have found it.</li>
             <li>
               An alternative ecosystem that is democratised, dynamic and
               sustainable, exists
@@ -296,7 +295,7 @@ export default function MasterPage() {
         </div>
       </section>
 
-      <BuySection note="Placeholder — links to the NFT purchase flow" />
+      <BuySection />
     </main>
   );
 }

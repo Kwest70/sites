@@ -563,3 +563,123 @@ body {
   margin-top: 2rem;
   width: 100%;
 }
+
+/* ---------- Animated hero (the one place anything moves) --------------- */
+
+.shader-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--midnight);
+  color: var(--offwhite);
+  min-height: calc(82vh - var(--nav-h));
+  display: flex;
+  align-items: center;
+  padding: 5rem 1.5rem 7rem;
+}
+
+@media (min-width: 768px) {
+  .shader-hero {
+    padding: 6rem 2rem 8rem;
+  }
+}
+
+.shader-hero__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+}
+
+.shader-hero__layer--gold {
+  opacity: 0.3;
+  mix-blend-mode: screen;
+  z-index: -1;
+}
+
+/* Scrim: keeps the headline legible wherever the gold happens to drift. */
+.shader-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    100deg,
+    rgba(14, 0, 24, 0.82) 0%,
+    rgba(45, 0, 84, 0.58) 55%,
+    rgba(14, 0, 24, 0.72) 100%
+  );
+}
+
+.shader-hero__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+/* Circling logo, bottom right */
+
+.shader-hero__badge {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 2;
+  width: 104px;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .shader-hero__badge {
+    right: 2.5rem;
+    bottom: 2.5rem;
+    width: 124px;
+    height: 124px;
+  }
+}
+
+.shader-hero__mark {
+  width: 40%;
+  height: auto;
+}
+
+.shader-hero__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.shader-hero__ring text {
+  font-family: var(--font-utility), monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  fill: var(--gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shader-hero__ring {
+    animation: none;
+  }
+}
+
+/* Shared heading for the "Three steps." style run-ins */
+.stack-heading {
+  font-family: var(--font-utility), monospace;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.9375rem;
+  margin: 2.5rem 0 0;
+}
+
+.type-body {
+  font-family: var(--font-body), sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  margin: 0;
+}

@@ -4,7 +4,7 @@ import ReadMore from "@/components/ReadMore";
 export const metadata = {
   title: "Impact Investor — Future Creatives",
   description:
-    "Culture is a potential trillion dollar economy with no infrastructure. Help lay the rails.",
+    "Subsidised culture, the arts and entertainment is a potential trillion dollar economy that has no infrastructure.",
 };
 
 export default function ImpactInvestorPage() {
@@ -13,34 +13,33 @@ export default function ImpactInvestorPage() {
       {/* ---- The character ------------------------------------------- */}
       <section className="section section--dark hero">
         <div className="wrap">
-          <span className="label">The Impact Investor</span>
+          <span className="label">The character</span>
           <h1 className="display display--sm">
-            Your capital can&rsquo;t make a return if you can&rsquo;t make a
-            difference
+            Impact Investors wanted. Your capital can&rsquo;t make a return if
+            you can&rsquo;t make a difference.
           </h1>
         </div>
       </section>
 
       <section className="section section--light">
         <div className="wrap">
-          <p className="shout">
-            Culture keeps getting treated as charity, so it keeps getting funded
-            like charity. Money in, spent, gone.
-          </p>
-
           <ReadMore>
+            <p>
+              Culture keeps getting treated as charity, so it keeps getting
+              funded like charity. Money in, spent, gone.
+            </p>
             <p>
               You&rsquo;ve seen the sector. It runs on grants that vanish and
               organisations that start every year from zero. There&rsquo;s no
               asset base, no balance sheet, nothing that compounds. A few
-              reserves maybe, but their fear is that if they make money they
+              reserves maybe, but their fear is if they make money they
               won&rsquo;t get the same next year.
             </p>
             <p>
               So capital that wants to do good in culture has nowhere sensible to
-              make a continued impact. It either becomes a donation you write
-              off, or you walk away and put it in housing where the model
-              actually works.
+              make a continued impact. It either becomes a donation you write off
+              or you walk away and put it in housing where the model actually
+              works.
             </p>
             <p>
               Culture and the arts generate enormous value but they were never
@@ -53,10 +52,10 @@ export default function ImpactInvestorPage() {
             <p>
               I ran a National Portfolio Organisation (NPO) until the funding was
               cut along with 159 other organisations and artists. There were
-              pioneers within that group. I pioneered Hiphop Theatre when the
+              pioneers within that group, I pioneered Hiphop Theatre when the
               sector said the audience wasn&rsquo;t there. I&rsquo;ve seen work
               generate millions in cultural and economic value while the people
-              who made it only gained status, and still continued to wait for
+              who made it only gained status and still continued to wait for
               permission to operate. The ecosystem was never built to fully
               capture what culture produces.
             </p>
@@ -68,8 +67,11 @@ export default function ImpactInvestorPage() {
       {/* ---- The plan ------------------------------------------------- */}
       <section className="section section--dark">
         <div className="wrap">
-          <span className="label">The Plan</span>
-          <h2 className="lead">Future Creatives enables culture to hold value</h2>
+          <h2 className="lead">The plan</h2>
+
+          <ReadMore>
+            <p>Future Creatives enables culture to hold value.</p>
+          </ReadMore>
 
           <ul className="stack">
             <li>
@@ -87,6 +89,7 @@ export default function ImpactInvestorPage() {
             </li>
           </ul>
 
+          <p className="stack-heading">Three steps.</p>
           <ul className="stack">
             <li>
               <span className="stack__term">One</span>
@@ -119,12 +122,12 @@ export default function ImpactInvestorPage() {
       {/* ---- What's at stake ------------------------------------------ */}
       <section className="section section--light">
         <div className="wrap">
-          <span className="label">What&rsquo;s at stake</span>
-          <h2 className="lead">
-            A potential trillion dollar economy that has no infrastructure
-          </h2>
-
+          <h2 className="lead">What&rsquo;s at stake</h2>
           <ReadMore>
+            <p>
+              Subsidised culture, the arts and entertainment is a potential
+              trillion dollar economy that has no infrastructure.
+            </p>
             <p>
               Remember the 90% of projects that get left on the table. Do nothing
               and it stays that way. The value keeps flowing to intermediaries
@@ -137,9 +140,11 @@ export default function ImpactInvestorPage() {
             </p>
             <p>
               Culture finally holds its own value and you helped lay the
-              foundation it sits on. The work gets made because the demand was
-              proven first. The capital keeps working because the model was built
-              to recycle.
+              foundation it sits on.
+            </p>
+            <p>The work gets made because the demand was proven first.</p>
+            <p>
+              The capital keeps working because the model was built to recycle.
             </p>
             <p>
               You made history by backing the shift at the point when it needed
@@ -154,12 +159,12 @@ export default function ImpactInvestorPage() {
       {/* ---- How ------------------------------------------------------ */}
       <section className="section section--dark">
         <div className="wrap">
-          <span className="label">How?</span>
-          <p className="lead">Go grab that token.</p>
+          <h2 className="lead">How?</h2>
+          <p className="type-body">Go Grab That Token</p>
         </div>
       </section>
 
-      <BuySection note="Placeholder — links to the NFT purchase flow" />
+      <BuySection />
     </main>
   );
 }
