@@ -1,21 +1,30 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Bangers, Space_Mono, DM_Sans } from "next/font/google";
 import "./globals.css";
+import Navigation from "@/components/Navigation";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const bangers = Bangers({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-display",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-utility",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  variable: "--font-body",
 });
 
 export const metadata: Metadata = {
-  title: "Future Creatives — Web4 Wallet",
-  description: "Self-custody Web4 wallet on SynapticChain. Own your culture.",
+  title: "Future Creatives — Shape Culture, Arts & Entertainment",
+  description:
+    "A decentralized creative economy platform. Fractionally own culture. Commission projects. Shape the future of arts and entertainment.",
 };
 
 export default function RootLayout({
@@ -26,8 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${bangers.variable} ${spaceMono.variable} ${dmSans.variable} antialiased`}
       >
+        <Navigation />
         {children}
       </body>
     </html>
