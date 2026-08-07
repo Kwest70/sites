@@ -3,20 +3,57 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* ---- Primitive palette (raw ramps — never referenced in markup) ---- */
+  --neutral-0: #ffffff;
+  --neutral-50: #f7f7f8;
+  --neutral-200: #e5e5e7;
+  --neutral-400: #a1a1aa;
+  --neutral-500: #71717a;
+  --neutral-700: #3f3f46;
+  --neutral-800: #27272a;
+  --neutral-900: #18181b;
+  --neutral-950: #0a0a0a;
+
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+
+  --accent-400: #2dd4bf;
+  --accent-500: #14b8a6;
+
+  /* ---- Semantic tokens (the API components use) — dark by default ---- */
+  --bg: var(--neutral-950);
+  --surface: var(--neutral-900);
+  --surface-2: var(--neutral-800);
+  --text: var(--neutral-50);
+  --muted: var(--neutral-400);
+  --border: var(--neutral-700);
+  --primary: var(--brand-500);
+  --accent: var(--accent-400);
+  --on-primary: var(--neutral-0);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+
+    --bg: var(--neutral-0);
+    --surface: var(--neutral-50);
+    --surface-2: var(--neutral-200);
+    --text: var(--neutral-900);
+    --muted: var(--neutral-500);
+    --border: var(--neutral-200);
+    --primary: var(--brand-600);
+    --accent: var(--accent-500);
+    --on-primary: var(--neutral-0);
   }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--text);
+  background: var(--bg);
   font-family: Arial, Helvetica, sans-serif;
 }
 
