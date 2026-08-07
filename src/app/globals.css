@@ -6,59 +6,65 @@
   color-scheme: dark;
 
   /* ---- Primitive palette (raw ramps — never referenced in markup) ---- */
-  --neutral-0: #ffffff;
-  --neutral-50: #f7f7f8;
-  --neutral-200: #e5e5e7;
-  --neutral-400: #a1a1aa;
-  --neutral-500: #71717a;
-  --neutral-700: #3f3f46;
-  --neutral-800: #27272a;
-  --neutral-900: #18181b;
-  --neutral-950: #0a0a0a;
+  --plum-950: #140a20;
+  --plum-900: #1c1030;
+  --plum-800: #271642;
+  --plum-700: #34215a;
+  --plum-600: #452d73;
 
-  --brand-400: #818cf8;
-  --brand-500: #6366f1;
-  --brand-600: #4f46e5;
+  --gold-400: #f5cd4b;
+  --gold-500: #e8b923;
+  --gold-600: #cfa015;
 
-  --accent-400: #2dd4bf;
-  --accent-500: #14b8a6;
+  --orange-400: #ff7a45;
+  --orange-500: #e8612d;
 
-  /* ---- Semantic tokens (the API components use) — dark by default ---- */
-  --bg: var(--neutral-950);
-  --surface: var(--neutral-900);
-  --surface-2: var(--neutral-800);
-  --text: var(--neutral-50);
-  --muted: var(--neutral-400);
-  --border: var(--neutral-700);
-  --primary: var(--brand-500);
-  --accent: var(--accent-400);
-  --on-primary: var(--neutral-0);
-}
+  --lime-400: #b5cc46;
+  --lime-500: #9db02e;
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
+  --green-400: #4ade80;
 
-    --bg: var(--neutral-0);
-    --surface: var(--neutral-50);
-    --surface-2: var(--neutral-200);
-    --text: var(--neutral-900);
-    --muted: var(--neutral-500);
-    --border: var(--neutral-200);
-    --primary: var(--brand-600);
-    --accent: var(--accent-500);
-    --on-primary: var(--neutral-0);
-  }
+  --paper-50: #f5efe6;
+  --paper-200: #cfc4d6;
+  --mist-500: #9a86b0;
+
+  /* ---- Semantic tokens (the API components use) ---- */
+  --bg: var(--plum-950);
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.09);
+  --text: var(--paper-50);
+  --muted: var(--mist-500);
+  --border: rgba(255, 255, 255, 0.1);
+  --primary: var(--gold-500);
+  --accent: var(--orange-500);
+  --success: var(--green-400);
+  --lime: var(--lime-400);
+  --on-primary: var(--plum-950);
 }
 
 body {
   color: var(--text);
   background: var(--bg);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* App background: warm glow top-right, gold wash bottom, plum base —
+   matches the mockups. Applied to the phone shell. */
+.app-bg {
+  background:
+    radial-gradient(115% 70% at 82% 0%, rgba(232, 97, 45, 0.22), transparent 52%),
+    radial-gradient(100% 55% at 50% 104%, rgba(232, 185, 35, 0.08), transparent 55%),
+    linear-gradient(180deg, var(--plum-800) 0%, var(--plum-900) 38%, var(--plum-950) 100%);
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  /* Heavy back-slanted display lettering used for headlines + the wordmark. */
+  .font-display {
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: -0.01em;
   }
 }
