@@ -1,33 +1,38 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Bangers, Space_Mono, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { Nav } from "@/components/Nav";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const bangers = Bangers({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-bangers",
+  display: "swap",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-space-mono",
+  display: "swap",
+});
+const dmSans = DM_Sans({
+  weight: ["300", "400", "500"],
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Future Creatives — Web4 Wallet",
-  description: "Self-custody Web4 wallet on SynapticChain. Own your culture.",
+  title: "Future Creatives — Own the culture you believe in",
+  description:
+    "A decentralised creative economy. Crowd-commission, fractionally own and back the culture, arts and entertainment you want to exist.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" className={`${bangers.variable} ${spaceMono.variable} ${dmSans.variable}`}>
+      <body>
+        <Nav />
         {children}
       </body>
     </html>

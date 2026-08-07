@@ -3,68 +3,112 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  --purple: #2d0054;
+  --orange: #ff5500;
+  --gold: #d4a017;
+  --midnight: #0e0018;
+  --offwhite: #f5f0ea;
+}
 
-  /* ---- Primitive palette (raw ramps — never referenced in markup) ---- */
-  --plum-950: #140a20;
-  --plum-900: #1c1030;
-  --plum-800: #271642;
-  --plum-700: #34215a;
-  --plum-600: #452d73;
+/* Brutalist: no rounded corners anywhere. */
+* {
+  border-radius: 0 !important;
+}
 
-  --gold-400: #f5cd4b;
-  --gold-500: #e8b923;
-  --gold-600: #cfa015;
-
-  --orange-400: #ff7a45;
-  --orange-500: #e8612d;
-
-  --lime-400: #b5cc46;
-  --lime-500: #9db02e;
-
-  --green-400: #4ade80;
-
-  --paper-50: #f5efe6;
-  --paper-200: #cfc4d6;
-  --mist-500: #9a86b0;
-
-  /* ---- Semantic tokens (the API components use) ---- */
-  --bg: var(--plum-950);
-  --surface: rgba(255, 255, 255, 0.05);
-  --surface-2: rgba(255, 255, 255, 0.09);
-  --text: var(--paper-50);
-  --muted: var(--mist-500);
-  --border: rgba(255, 255, 255, 0.1);
-  --primary: var(--gold-500);
-  --accent: var(--orange-500);
-  --success: var(--green-400);
-  --lime: var(--lime-400);
-  --on-primary: var(--plum-950);
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  color: var(--text);
-  background: var(--bg);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--purple);
+  color: var(--offwhite);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* App background: warm glow top-right, gold wash bottom, plum base —
-   matches the mockups. Applied to the phone shell. */
-.app-bg {
-  background:
-    radial-gradient(115% 70% at 82% 0%, rgba(232, 97, 45, 0.22), transparent 52%),
-    radial-gradient(100% 55% at 50% 104%, rgba(232, 185, 35, 0.08), transparent 55%),
-    linear-gradient(180deg, var(--plum-800) 0%, var(--plum-900) 38%, var(--plum-950) 100%);
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@layer components {
+  /* Utility label — Space Mono, wide tracking, small caps feel */
+  .label {
+    font-family: var(--font-space-mono), monospace;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-size: 0.8125rem;
+    color: var(--orange);
   }
-  /* Heavy back-slanted display lettering used for headlines + the wordmark. */
-  .font-display {
-    font-weight: 900;
-    font-style: italic;
-    letter-spacing: -0.01em;
+
+  /* Display headings — Bangers, large and commanding */
+  .display {
+    font-family: var(--font-bangers), system-ui, cursive;
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: 0.01em;
+  }
+
+  /* Body copy container: max 720px, centred */
+  .prose-col {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* CTA button — solid orange, white text, sharp, bold */
+  .btn-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--orange);
+    color: #ffffff;
+    font-family: var(--font-space-mono), monospace;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1.125rem 2.5rem;
+    border: 2px solid var(--orange);
+  }
+
+  /* End-of-page buy button — gold block, midnight text */
+  .btn-buy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gold);
+    color: var(--midnight);
+    font-family: var(--font-space-mono), monospace;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1.25rem 2.5rem;
+    border: 2px solid var(--gold);
+  }
+
+  /* Gold-bordered callout box */
+  .callout {
+    border: 2px solid var(--gold);
+    padding: 1.75rem;
+  }
+}
+
+/* Single subtle fade-in on page load — no scroll animations */
+@keyframes fc-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-in {
+  animation: fc-fade-in 0.5s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-in {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }

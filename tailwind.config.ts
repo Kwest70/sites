@@ -9,25 +9,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "var(--bg)",
-        surface: "var(--surface)",
-        "surface-2": "var(--surface-2)",
-        text: "var(--text)",
-        muted: "var(--muted)",
-        border: "var(--border)",
-        primary: "var(--primary)",
-        accent: "var(--accent)",
-        success: "var(--success)",
-        lime: "var(--lime)",
-        "on-primary": "var(--on-primary)",
+        purple: "#2D0054",
+        orange: "#FF5500",
+        gold: "#D4A017",
+        midnight: "#0E0018",
+        offwhite: "#F5F0EA",
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-bangers)", "system-ui", "cursive"],
+        mono: ["var(--font-space-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-dm-sans)", "system-ui", "sans-serif"],
       },
-      boxShadow: {
-        glow: "0 0 32px -4px rgba(232, 185, 35, 0.55)",
+      maxWidth: {
+        prose: "720px",
       },
+    },
+    // Brutalist: sharp edges only, everywhere.
+    borderRadius: {
+      none: "0",
+      DEFAULT: "0",
+      full: "0",
     },
   },
   plugins: [],
