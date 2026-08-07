@@ -16,24 +16,36 @@ export default function ReadMore({
 }: ReadMoreProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showToggle, setShowToggle] = useState(false);
+  const [collapsedHeight, setCollapsedHeight] = useState("0");
   const contentRef = useRef<HTMLDivElement>(null);
   const fullHeightRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!contentRef.current || !fullHeightRef.current) return;
+    const measureHeight = () => {
+      if (!fullHeightRef.current) return;
 
-    // Calculate line height
-    const lineHeight = parseFloat(
-      window.getComputedStyle(contentRef.current).lineHeight
-    );
-    const collapsedHeight = lineHeight * maxLines;
-    const fullHeight = fullHeightRef.current.offsetHeight;
+      const fullHeight = fullHeightRef.current.offsetHeight;
+      const lineHeight = parseFloat(
+        window.getComputedStyle(fullHeightRef.current).lineHeight
+      );
+      const targetHeight = lineHeight * maxLines;
 
-    // Only show toggle if text exceeds max lines
-    setShowToggle(fullHeight > collapsedHeight + 10); // 10px buffer
+      // Show toggle if content is significantly taller than max lines
+      const shouldShowToggle = fullHeight > targetHeight * 1.2; // 20% buffer for safety
+      setShowToggle(shouldShowToggle);
+      setCollapsedHeight(`${targetHeight}px`);
+    };
+
+    // Wait for fonts to load and content to render
+    const timer = setTimeout(measureHeight, 100);
+    window.addEventListener("resize", measureHeight);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", measureHeight);
+    };
   }, [children, maxLines]);
 
-  const collapsedHeight = `calc(${maxLines} * 1.7em)`;
   const expandedHeight = fullHeightRef.current?.offsetHeight || "auto";
 
   if (!showToggle) {
