@@ -21,10 +21,10 @@ export const RemotionRoot: React.FC = () => {
         // https://www.remotion.dev/docs/parametrized-rendering
         schema={myCompSchema}
         defaultProps={{
-          titleText: "Welcome to Remotion",
-          titleColor: "#000000",
-          logoColor1: "#91EAE4",
-          logoColor2: "#86A8E7",
+          titleText: "Future Creatives",
+          titleColor: "#0E0018",
+          logoColor1: "#4FD8F5",
+          logoColor2: "#4FD8F5",
         }}
       />
 
@@ -38,8 +38,8 @@ export const RemotionRoot: React.FC = () => {
         height={1080}
         schema={myCompSchema2}
         defaultProps={{
-          logoColor1: "#91dAE2" as const,
-          logoColor2: "#86A8E7" as const,
+          logoColor1: "#4FD8F5" as const,
+          logoColor2: "#4FD8F5" as const,
         }}
       />
     </>
