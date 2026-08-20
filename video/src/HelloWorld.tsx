@@ -9,7 +9,6 @@ import {
 } from "remotion";
 import { z } from "zod";
 import { Logo } from "./HelloWorld/Logo";
-import { Subtitle } from "./HelloWorld/Subtitle";
 import { Title } from "./HelloWorld/Title";
 
 export const myCompSchema = z.object({
@@ -65,10 +64,6 @@ export const HelloWorld: React.FC<z.infer<typeof myCompSchema>> = ({
         {/* Sequences can shift the time for its children! */}
         <Sequence from={35}>
           <Title titleText={propOne} titleColor={propTwo} />
-        </Sequence>
-        {/* The subtitle will only enter on the 75th frame. */}
-        <Sequence from={75}>
-          <Subtitle />
         </Sequence>
       </AbsoluteFill>
     </AbsoluteFill>
