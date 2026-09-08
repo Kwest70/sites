@@ -53,7 +53,7 @@ export const LINES: CaptionLine[] = [
     fontSize: 106,
   },
   {
-    text: "that are not recognised by institutions and blocked gatekeepers.",
+    text: "that are not supported by institutions and blocked by gatekeepers.",
     durationInFrames: 84,
     fontSize: 110,
   },
