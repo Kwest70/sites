@@ -5,6 +5,10 @@ import {
   ProfileCaption,
 } from "./Caption/ProfileCaption";
 import { HelloWorld, myCompSchema } from "./HelloWorld";
+import {
+  INTRO_DURATION,
+  PunkGlitchIntro,
+} from "./Intro/PunkGlitchIntro";
 import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 
 // Each <Composition> is an entry in the sidebar!
@@ -12,6 +16,15 @@ import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="PunkGlitchIntro"
+        component={PunkGlitchIntro}
+        durationInFrames={INTRO_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+
       <Composition
         id="ProfileCaption"
         component={ProfileCaption}
