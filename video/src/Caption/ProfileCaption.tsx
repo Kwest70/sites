@@ -48,9 +48,9 @@ export const LINES: CaptionLine[] = [
     fontSize: 124,
   },
   {
-    text: "We do this by unlocking the value in the 1000’s of creative industry projects",
+    text: "By unlocking the value in the 1000’s of creative industry projects",
     durationInFrames: 108,
-    fontSize: 96,
+    fontSize: 106,
   },
   {
     text: "that are not recognised by institutions and blocked gatekeepers.",
