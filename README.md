@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Contract Fulfilment Tracker (`/tracker`)
+
+An MVP for YUAF's facilitator contracts. Facilitators turn each session's cell green once it has gone ahead; changes to the delivery schedule are logged with their effect on pay; pro-formas build themselves from what was delivered.
+
+Everything runs in the browser on demo data (saved to `localStorage`, reset from the demo bar). Names, dates and events are made up. Contract terms are modelled on the 121 Mentor Agreement and the Amplify Hillingdon pro-forma.
+
+| Rule | Where |
+| --- | --- |
+| Invoicing period: 29th to 28th, paid on the 28th, queries by the 26th | `src/lib/tracker/rules.ts` (`periodOf`, `periodInfo`) |
+| Reminders: 1 hour after the session, 9am next day, then escalate to the coordinator once the 24-hour monitoring window closes | `reminderTimes`, `dueAlerts` |
+| Cancellations: under 48 hours' notice paid in full, otherwise rescheduled before it is invoiced | `sessionState` |
+| Pro-forma ledger: owed minus already invoiced, per line, so roll-forwards, deductions and late approvals carry over on their own | `ledger` |
+| Budget by cost code and period | `budget` |
+
+The demo history in `src/lib/tracker/seed.ts` is replayed through the same reducer the UI uses (`src/lib/tracker/actions.ts`), so the seeded change log and pro-formas follow the real rules.
+
+To make it real: a database instead of `localStorage`, sign-in per facilitator, a scheduled job that sends the reminders by email or SMS, and real cost codes.

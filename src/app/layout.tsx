@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Bangers, Space_Mono, DM_Sans } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/Nav";
 
 const bangers = Bangers({
   weight: "400",
@@ -31,10 +30,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${bangers.variable} ${spaceMono.variable} ${dmSans.variable}`}>
-      <body>
-        <Nav />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

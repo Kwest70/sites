@@ -8,6 +8,43 @@
   --gold: #d4a017;
   --midnight: #0e0018;
   --offwhite: #f5f0ea;
+
+  /* Primitive ramps for the tracker. Never referenced in markup. */
+  --neutral-0: #ffffff;
+  --neutral-50: #f7f7f8;
+  --neutral-100: #efeff2;
+  --neutral-200: #e4e4e7;
+  --neutral-600: #52525b;
+  --neutral-900: #18181b;
+  --green-50: #ecfdf3;
+  --green-700: #15803d;
+  --amber-50: #fff7e0;
+  --amber-800: #92400e;
+  --red-50: #fef2f2;
+  --red-700: #b91c1c;
+  --blue-50: #eff6ff;
+  --blue-700: #1d4ed8;
+
+  /* Semantic tokens: the API components use. */
+  --color-background: var(--neutral-50);
+  --color-surface: var(--neutral-0);
+  --color-surface-muted: var(--neutral-100);
+  --color-foreground: var(--neutral-900);
+  --color-muted: var(--neutral-600);
+  --color-subtle: var(--neutral-200);
+  --color-primary: var(--purple);
+  --color-primary-fg: var(--neutral-0);
+  --color-success: var(--green-700);
+  --color-success-fg: var(--neutral-0);
+  --color-success-soft: var(--green-50);
+  --color-warning: var(--amber-800);
+  --color-warning-soft: var(--amber-50);
+  --color-danger: var(--red-700);
+  --color-danger-fg: var(--neutral-0);
+  --color-danger-soft: var(--red-50);
+  --color-info: var(--blue-700);
+  --color-info-soft: var(--blue-50);
+  --color-overlay: rgb(24 24 27 / 0.45);
 }
 
 /* Brutalist: no rounded corners anywhere. */
@@ -110,5 +147,26 @@ body {
   }
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* Print only the pro-forma when saving it as a PDF. */
+@media print {
+  body {
+    background: var(--neutral-0);
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: 0;
   }
 }
