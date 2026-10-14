@@ -4,6 +4,10 @@ import {
   CAPTION_DURATION,
   ProfileCaption,
 } from "./Caption/ProfileCaption";
+import {
+  DIFFUSION_DURATION,
+  DiffusionOfInnovation,
+} from "./Diffusion/DiffusionOfInnovation";
 import { HelloWorld, myCompSchema } from "./HelloWorld";
 import {
   INTRO_DURATION,
@@ -16,6 +20,15 @@ import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="DiffusionOfInnovation"
+        component={DiffusionOfInnovation}
+        durationInFrames={DIFFUSION_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+
       <Composition
         id="PunkGlitchIntro"
         component={PunkGlitchIntro}
