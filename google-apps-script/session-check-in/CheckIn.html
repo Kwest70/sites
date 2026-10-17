@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --bg: #f7f7f8;
+        --surface: #ffffff;
+        --fg: #18181b;
+        --muted: #52525b;
+        --subtle: #e4e4e7;
+        --primary: #2d0054;
+        --success: #15803d;
+        --success-soft: #ecfdf3;
+        --warning: #92400e;
+        --warning-soft: #fff7e0;
+        --danger: #b91c1c;
+        --danger-soft: #fef2f2;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 480px; margin: 0 auto; padding: 24px 16px 48px; }
+      .card { background: var(--surface); border: 1px solid var(--subtle); padding: 24px 16px; }
+      .eyebrow { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+      h1 { margin: 0 0 16px; font-size: 25px; line-height: 1.25; letter-spacing: -0.01em; }
+      .when { margin: 0 0 24px; padding: 8px 16px; background: var(--bg); border-left: 4px solid var(--primary); }
+      .when b { display: block; }
+      button, .button {
+        display: block; width: 100%; min-height: 56px; margin: 0 0 8px; padding: 16px;
+        border: 2px solid var(--fg); background: var(--surface); color: var(--fg);
+        font: inherit; font-weight: 600; text-align: center; cursor: pointer;
+      }
+      button.yes { background: var(--success); border-color: var(--success); color: #fff; font-size: 20px; }
+      button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+      button.link { min-height: 48px; border: 0; background: none; color: var(--primary); text-decoration: underline; }
+      button:disabled { opacity: 0.5; cursor: wait; }
+      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, label.option:focus-within {
+        outline: 2px solid var(--primary); outline-offset: 2px;
+      }
+      .note { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+      .error { margin: 0 0 16px; padding: 8px 16px; background: var(--danger-soft); color: var(--danger); border-left: 4px solid var(--danger); }
+      .error:empty { display: none; }
+      fieldset { margin: 0 0 16px; padding: 0; border: 0; }
+      legend { margin: 0 0 8px; font-weight: 600; }
+      label.option {
+        display: flex; gap: 16px; align-items: center; min-height: 56px; padding: 8px 16px;
+        border: 1px solid var(--subtle); border-bottom: 0; cursor: pointer;
+      }
+      label.option:last-of-type { border-bottom: 1px solid var(--subtle); }
+      label.option input { width: 24px; height: 24px; margin: 0; accent-color: var(--primary); }
+      label.option.off { color: var(--muted); cursor: not-allowed; }
+      .detail { display: none; padding: 16px; background: var(--bg); border: 1px solid var(--subtle); border-top: 0; }
+      .detail.open { display: grid; gap: 8px; }
+      .detail label, .field label { font-size: 14px; font-weight: 600; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      input[type="number"], input[type="date"], input[type="time"], input[type="text"], select, textarea {
+        width: 100%; min-height: 48px; padding: 8px; border: 1px solid var(--muted); background: var(--surface);
+        font: inherit; color: var(--fg);
+      }
+      textarea { min-height: 80px; }
+      .field { display: grid; gap: 8px; margin: 0 0 16px; }
+      .done { text-align: center; }
+      .tick {
+        width: 72px; height: 72px; margin: 0 auto 16px; display: grid; place-items: center;
+        background: var(--success); color: #fff; font-size: 40px; border-radius: 50%;
+      }
+      .summary { margin: 0 0 16px; padding: 8px 16px; background: var(--success-soft); text-align: left; }
+      .warn { background: var(--warning-soft); color: var(--warning); border-left: 4px solid var(--warning); padding: 8px 16px; margin: 0 0 16px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card" id="app" aria-live="polite"></div>
+    </main>
+
+    <script>
+      var DATA = <?!= jsonForPage(data) ?>;
+      var app = document.getElementById("app");
+
+      function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        Object.keys(attrs || {}).forEach(function (k) {
+          if (k === "text") node.textContent = attrs[k];
+          else if (k === "onclick") node.addEventListener("click", attrs[k]);
+          else node.setAttribute(k, attrs[k]);
+        });
+        (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+        return node;
+      }
+
+      function heading() {
+        return [
+          el("p", { class: "eyebrow", text: "Hi " + DATA.name + " · session check-in" }),
+          el("h1", { text: "Did session " + DATA.session + " happen as planned?" }),
+          el("p", { class: "when" }, [el("b", { text: DATA.when }), document.createTextNode(DATA.project)]),
+        ];
+      }
+
+      function show(nodes) {
+        app.innerHTML = "";
+        nodes.forEach(function (n) { if (n) app.appendChild(n); });
+        window.scrollTo(0, 0);
+      }
+
+      function send(answer, button) {
+        button.disabled = true;
+        var error = document.getElementById("error");
+        if (error) error.textContent = "";
+        google.script.run
+          .withSuccessHandler(function (result) { thanks(result); })
+          .withFailureHandler(function (err) {
+            button.disabled = false;
+            var box = document.getElementById("error");
+            if (box) box.textContent = (err && err.message) || "That didn't send. Check your signal and try again.";
+            else alert((err && err.message) || "That didn't send. Try again.");
+          })
+          .submitCheckIn(DATA.key, answer);
+      }
+
+      // ── Screen 1: the question ──
+      function question() {
+        if (!DATA.started) {
+          show(heading().concat([
+            el("p", { class: "warn", text: "This session hasn't started yet. You can still tell us if it has been moved or cancelled." }),
+            el("button", { text: "Something changed", onclick: changeForm }),
+          ]));
+          return;
+        }
+        if (DATA.status) {
+          show(heading().concat([
+            el("p", { class: "summary" }, [
+              el("b", { text: "You answered on " + DATA.answeredAt + ": " + DATA.status }),
+              DATA.summary && DATA.summary !== "As planned" ? el("span", { text: " · " + DATA.summary }) : null,
+            ]),
+            el("button", { text: "Something changed", onclick: changeForm }),
+            el("p", { class: "note", text: "A new answer replaces this one in the sheet. Both stay in the log." }),
+          ]));
+          return;
+        }
+        var yes = el("button", { class: "yes", text: "Yes, it happened" });
+        yes.addEventListener("click", function () { send({ asPlanned: true }, yes); });
+        show(heading().concat([
+          el("p", { class: "error", id: "error", role: "alert" }),
+          yes,
+          el("button", { text: "Something changed", onclick: changeForm }),
+          el("p", { class: "note", text: "Late start, extra time, a different day, travel or a cancellation? Tap 'Something changed'." }),
+        ]));
+      }
+
+      // ── Screen 2: what changed ──
+      var OPTIONS = [
+        { id: "late", label: "Started late", onTheDay: true },
+        { id: "extra", label: "Ran over or extra time", onTheDay: true },
+        { id: "moved", label: "Moved to another day or time" },
+        { id: "cancelled", label: "It was cancelled" },
+        { id: "travel", label: "Travel cost" },
+        { id: "expense", label: "Other expense" },
+      ];
+
+      function field(label, input) {
+        var id = "f-" + Math.random().toString(36).slice(2);
+        input.id = id;
+        return el("div", { class: "field" }, [el("label", { for: id, text: label }), input]);
+      }
+
+      function details(id) {
+        switch (id) {
+          case "late":
+            return [field("How many minutes late?", el("input", { type: "number", inputmode: "numeric", min: "1", name: "late-minutes" }))];
+          case "extra":
+            return [field("How many extra minutes?", el("input", { type: "number", inputmode: "numeric", min: "1", name: "extra-minutes" }))];
+          case "moved":
+            return [
+              field("New date", el("input", { type: "date", name: "moved-date" })),
+              el("div", { class: "row" }, [
+                field("Starts", el("input", { type: "time", name: "moved-start" })),
+                field("Ends", el("input", { type: "time", name: "moved-end" })),
+              ]),
+            ];
+          case "cancelled":
+            var who = el("select", { name: "cancelled-by" }, [
+              el("option", { value: "", text: "Choose" }),
+              el("option", { value: "young-person", text: "The young person" }),
+              el("option", { value: "venue", text: "The venue or partner" }),
+              el("option", { value: "yuaf", text: "YUAF" }),
+              el("option", { value: "me", text: "I did" }),
+            ]);
+            return [
+              field("Who cancelled?", who),
+              el("div", { class: "row" }, [
+                field("When were you told?", el("input", { type: "date", name: "told-date", value: DATA.today })),
+                field("At", el("input", { type: "time", name: "told-time", value: DATA.now })),
+              ]),
+            ];
+          case "travel":
+          case "expense":
+            var word = id === "travel" ? "travel" : "expense";
+            return [
+              field(word.charAt(0).toUpperCase() + word.slice(1) + " amount (£)", el("input", { type: "number", inputmode: "decimal", min: "0.01", step: "0.01", name: id + "-amount" })),
+              field("What was the " + word + " for?", el("input", { type: "text", maxlength: "200", name: id + "-what" })),
+            ];
+        }
+      }
+
+      function changeForm() {
+        var form = el("form", { novalidate: "novalidate" });
+        var options = el("fieldset", {}, [el("legend", { text: "Tick everything that applies." })]);
+        var boxes = {};
+
+        OPTIONS.forEach(function (o) {
+          var box = el("input", { type: "checkbox", name: o.id });
+          var label = el("label", { class: "option" }, [box, el("span", { text: o.label })]);
+          var panel = el("div", { class: "detail" }, details(o.id));
+          box.addEventListener("change", function () {
+            panel.classList.toggle("open", box.checked);
+            if (box.checked) { var first = panel.querySelector("input, select"); if (first) first.focus(); }
+            sync();
+          });
+          boxes[o.id] = { box: box, label: label, panel: panel, onTheDay: o.onTheDay };
+          options.appendChild(label);
+          options.appendChild(panel);
+        });
+
+        // A late start or extra time can't apply if the session moved or was cancelled.
+        function sync() {
+          var notOnTheDay = boxes.moved.box.checked || boxes.cancelled.box.checked;
+          Object.keys(boxes).forEach(function (id) {
+            var b = boxes[id];
+            if (!b.onTheDay) return;
+            if (notOnTheDay) { b.box.checked = false; b.panel.classList.remove("open"); }
+            b.box.disabled = notOnTheDay;
+            b.label.classList.toggle("off", notOnTheDay);
+          });
+        }
+
+        var notes = el("textarea", { name: "notes", maxlength: "1000" });
+        var submit = el("button", { type: "submit", class: "primary", text: "Send" });
+        form.appendChild(options);
+        form.appendChild(field("Anything else? (optional)", notes));
+        form.appendChild(el("p", { class: "error", id: "error", role: "alert" }));
+        form.appendChild(submit);
+        form.appendChild(el("button", { type: "button", class: "link", text: "Back", onclick: question }));
+
+        form.addEventListener("input", function () {
+          var box = document.getElementById("error");
+          if (box) box.textContent = "";
+        });
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var v = function (name) { var f = form.elements[name]; return f ? f.value : ""; };
+          var on = function (id) { return boxes[id].box.checked; };
+          var answer = { asPlanned: false, notes: v("notes") };
+          if (on("late")) answer.late = { minutes: v("late-minutes") };
+          if (on("extra")) answer.extra = { minutes: v("extra-minutes") };
+          if (on("moved")) answer.moved = { date: v("moved-date"), start: v("moved-start"), end: v("moved-end") };
+          if (on("cancelled")) answer.cancelled = { by: v("cancelled-by"), toldDate: v("told-date"), toldTime: v("told-time") };
+          if (on("travel")) answer.travel = { amount: v("travel-amount"), what: v("travel-what") };
+          if (on("expense")) answer.expense = { amount: v("expense-amount"), what: v("expense-what") };
+          send(answer, submit);
+        });
+
+        show([
+          el("p", { class: "eyebrow", text: "Session " + DATA.session + " · " + DATA.when }),
+          el("h1", { text: "What changed?" }),
+          form,
+        ]);
+      }
+
+      // ── Screen 3: thanks ──
+      function thanks(result) {
+        DATA.status = result.status;
+        DATA.summary = result.summary;
+        var delivered = result.summary === "As planned";
+        show([
+          el("div", { class: "done" }, [
+            el("div", { class: "tick", "aria-hidden": "true", text: "✓" }),
+            el("h1", { text: "Thanks, " + DATA.name + "." }),
+            el("p", { class: "summary", text: delivered ? "Session " + DATA.session + " is marked as delivered." : "We've recorded: " + result.summary }),
+            el("p", { class: "note", text: "You can close this page." }),
+            el("button", { type: "button", class: "link", text: delivered ? "Not right? Tell us what changed" : "Change this answer", onclick: changeForm }),
+          ]),
+        ]);
+      }
+
+      if (!DATA) {
+        show([
+          el("h1", { text: "This link doesn't work" }),
+          el("p", { text: "It may be old or mistyped. Ask your coordinator to send it again." }),
+        ]);
+      } else {
+        question();
+      }
+    </script>
+  </body>
+</html>

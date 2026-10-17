@@ -52,3 +52,7 @@ Everything runs in the browser on demo data (saved to `localStorage`, reset from
 The demo history in `src/lib/tracker/seed.ts` is replayed through the same reducer the UI uses (`src/lib/tracker/actions.ts`), so the seeded change log and pro-formas follow the real rules.
 
 To make it real: a database instead of `localStorage`, sign-in per facilitator, a scheduled job that sends the reminders by email or SMS, and real cost codes.
+
+## Session check-ins in Google Sheets (`google-apps-script/session-check-in`)
+
+The facilitator side, without Meta or a new app: a Google Apps Script that lives inside a Google Sheet. Facilitators get an email with a personal link after each session, tap **Yes, it happened** or **Something changed**, and the answer lands in the sheet, where the Status cell turns green. Setup steps are in [its README](google-apps-script/session-check-in/README.md).
