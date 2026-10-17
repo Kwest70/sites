@@ -1,10 +1,16 @@
 /**
  * Session check-ins for facilitators.
  *
- * Lives inside a Google Sheet (Extensions > Apps Script). Shortly after each
- * session the facilitator gets an email with a personal link. The link opens a
- * page with two buttons: "Yes, it happened" and "Something changed". Answers
- * land in the sheet, where the Status cell turns green.
+ * Lives inside a Google Sheet (Extensions > Apps Script). After each session the
+ * facilitator gets a WhatsApp message with two links:
+ *   1. "Did it happen?"       Opening it marks the session as delivered.
+ *   2. "Did anything change?" Opens a short form: late start, extra time, moved,
+ *                              cancelled, travel, other expense.
+ * Answers land in the sheet, where the Status cell turns green.
+ *
+ * WhatsApp can't be sent automatically without a Meta business account, so the
+ * sheet prepares each message and the coordinator sends it with one tap
+ * ("Send on WhatsApp"). The links work the same by text or email.
  *
  * Tabs: Sessions (the schedule, filled in by the coordinator), Check-ins (every
  * answer, never edited) and Settings.
@@ -13,9 +19,10 @@
 var TAB = { sessions: "Sessions", checkIns: "Check-ins", settings: "Settings" };
 
 var SESSION_COLS = [
-  "Facilitator", "Email", "Project", "Session", "Date", "Start", "End",
-  "Status", "Answered at", "What changed",
-  "Reminder 1 sent", "Reminder 2 sent", "Coordinator told", "Link", "Key",
+  "Facilitator", "Mobile", "Email", "Project", "Session", "Date", "Start", "End",
+  "Status", "Answered at", "What changed", "Send on WhatsApp",
+  "Check-in due", "Reminder due", "Coordinator told",
+  "Yes link", "Change link", "Key",
 ];
 var C = {};
 SESSION_COLS.forEach(function (h, i) { C[h] = i; });
@@ -29,13 +36,15 @@ var CHECK_IN_COLS = [
 
 var SETTINGS = [
   ["Web app URL", "", "Paste the link ending in /exec from Deploy > Manage deployments."],
-  ["Coordinator email", "", "Hears about sessions nobody has answered. Blank sends to you."],
-  ["Reply-to email", "", "Where replies to the reminder email go. Blank uses your address."],
+  ["Coordinator email", "", "Gets the 'ready to send' list and unanswered sessions. Blank sends to you."],
+  ["Email the coordinator when a check-in is due", "Yes", "Yes or No. The email has a 'Send on WhatsApp' link for each session."],
+  ["Also email facilitators", "No", "Yes or No. Sends the same two links by email, automatically, if the row has an email."],
+  ["Reply-to email", "", "Where replies to emails go. Blank uses your address."],
   ["Sender name", "YUAF", "Shown as the email sender."],
-  ["First reminder (minutes after the session ends)", 15, ""],
-  ["Second reminder (hour of the next day, 24h clock)", 9, ""],
+  ["Check-in due (minutes after the session ends)", 15, ""],
+  ["Reminder due (hour of the next day, 24h clock)", 9, ""],
   ["Tell the coordinator after (hours)", 24, "Counted from the end of the session."],
-  ["Ignore sessions older than (days)", 7, "Stops old rows getting reminders when you first set up."],
+  ["Ignore sessions older than (days)", 7, "Stops old rows being flagged when you first set up."],
 ];
 
 var STATUS = {
@@ -63,7 +72,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Check-ins")
     .addItem("Set up this sheet", "setup")
-    .addItem("Send due reminders now", "runReminders")
+    .addItem("Check for due sessions now", "runReminders")
     .addItem("Make links for new rows", "fillLinks")
     .addSeparator()
     .addItem("Add two test sessions", "addTestSessions")
@@ -90,10 +99,12 @@ function setup() {
   }
 
   var rows = sessions.getMaxRows() - 1;
+  // Plain text, so Sheets keeps the leading 0 of a mobile number.
+  sessions.getRange(2, C["Mobile"] + 1, rows, 1).setNumberFormat("@");
   sessions.getRange(2, C["Date"] + 1, rows, 1).setNumberFormat("dd/mm/yyyy");
   sessions.getRange(2, C["Start"] + 1, rows, 2).setNumberFormat("HH:mm");
   sessions.getRange(2, C["Answered at"] + 1, rows, 1).setNumberFormat("dd/mm/yyyy HH:mm");
-  sessions.getRange(2, C["Reminder 1 sent"] + 1, rows, 3).setNumberFormat("dd/mm/yyyy HH:mm");
+  sessions.getRange(2, C["Check-in due"] + 1, rows, 3).setNumberFormat("dd/mm/yyyy HH:mm");
   sessions.hideColumns(C["Key"] + 1);
   colourStatus_(sessions);
 
@@ -105,7 +116,7 @@ function setup() {
   fillLinks();
   alert_(
     setting_("Web app URL")
-      ? "Set up. Add sessions to the Sessions tab. Reminders check every 5 minutes."
+      ? "Set up. Add sessions to the Sessions tab. The sheet checks for finished sessions every 5 minutes."
       : "Nearly there. Deploy the web app, paste its /exec link into Settings, then run Set up again.",
   );
 }
@@ -119,11 +130,15 @@ function ensureTab_(ss, name, headers) {
   return sheet;
 }
 
+function letter_(column) {
+  return String.fromCharCode(65 + C[column]);
+}
+
 /** The cell you were asked for: green once the facilitator says yes. */
 function colourStatus_(sheet) {
-  var col = String.fromCharCode(65 + C["Status"]);
-  var told = String.fromCharCode(65 + C["Coordinator told"]);
-  var r1 = String.fromCharCode(65 + C["Reminder 1 sent"]);
+  var status = letter_("Status");
+  var told = letter_("Coordinator told");
+  var due = letter_("Check-in due");
   var range = sheet.getRange(2, C["Status"] + 1, sheet.getMaxRows() - 1, 1);
   var rule = function () { return SpreadsheetApp.newConditionalFormatRule().setRanges([range]); };
   sheet.setConditionalFormatRules([
@@ -131,36 +146,52 @@ function colourStatus_(sheet) {
     rule().whenTextEqualTo(STATUS.changed).setBackground("#fce8b2").build(),
     rule().whenTextEqualTo(STATUS.moved).setBackground("#fce8b2").build(),
     rule().whenTextEqualTo(STATUS.cancelled).setBackground("#e8eaed").build(),
-    // No answer and the coordinator has been told: red. Reminder out, still waiting: pale yellow.
-    rule().whenFormulaSatisfied("=AND($" + col + "2=\"\",$" + told + "2<>\"\")").setBackground("#f4c7c3").build(),
-    rule().whenFormulaSatisfied("=AND($" + col + "2=\"\",$" + r1 + "2<>\"\")").setBackground("#fff2cc").build(),
+    // No answer and the coordinator has been told: red. Check-in due, still waiting: pale yellow.
+    rule().whenFormulaSatisfied("=AND($" + status + "2=\"\",$" + told + "2<>\"\")").setBackground("#f4c7c3").build(),
+    rule().whenFormulaSatisfied("=AND($" + status + "2=\"\",$" + due + "2<>\"\")").setBackground("#fff2cc").build(),
   ]);
 }
 
-/** Gives every session row a private key and a personal link. */
+/**
+ * Gives every session row a private key, its two links and a ready-made
+ * WhatsApp message. Rewritten each run, so edits to times or names flow through.
+ */
 function fillLinks() {
-  var sheet = book_().getSheetByName(TAB.sessions);
+  var ss = book_();
+  var sheet = ss.getSheetByName(TAB.sessions);
   var last = sheet.getLastRow();
   if (last < 2) return;
+  var tz = ss.getSpreadsheetTimeZone();
   var url = setting_("Web app URL");
-  var values = sheet.getRange(2, 1, last - 1, SESSION_COLS.length).getValues();
-  var changed = false;
-  var out = values.map(function (r) {
-    var key = r[C["Key"]];
-    if (!r[C["Facilitator"]] && !r[C["Date"]]) return [r[C["Link"]], key];
-    if (!key) {
-      key = Utilities.getUuid().replace(/-/g, "").slice(0, 16);
-      changed = true;
+  var range = sheet.getRange(2, 1, last - 1, SESSION_COLS.length);
+  var values = range.getValues();
+  var shown = range.getDisplayValues();
+
+  var whatsApp = [];
+  var links = values.map(function (r, i) {
+    var text = SpreadsheetApp.newRichTextValue().setText("");
+    if (!r[C["Facilitator"]] && !r[C["Date"]]) {
+      whatsApp.push([text.build()]);
+      return [r[C["Yes link"]], r[C["Change link"]], r[C["Key"]]];
     }
-    var link = url ? url + "?k=" + key : "";
-    if (link !== r[C["Link"]]) changed = true;
-    return [link, key];
+    var key = r[C["Key"]] || Utilities.getUuid().replace(/-/g, "").slice(0, 16);
+    var yes = url ? url + "?k=" + key + "&a=yes" : "";
+    var change = url ? url + "?k=" + key + "&a=change" : "";
+    var t = sessionTimes_(r, shown[i], tz);
+    if (yes && t) {
+      text = SpreadsheetApp.newRichTextValue()
+        .setText("Send on WhatsApp")
+        .setLinkUrl(whatsAppUrl_(r[C["Mobile"]], checkInMessage_(r, t, tz, yes, change, false)));
+    }
+    whatsApp.push([text.build()]);
+    return [yes, change, key];
   });
-  // Write only the two script-owned columns, so edits elsewhere are never overwritten.
-  if (changed) sheet.getRange(2, C["Link"] + 1, out.length, 2).setValues(out);
+  // Write only script-owned columns, so edits elsewhere are never overwritten.
+  sheet.getRange(2, C["Send on WhatsApp"] + 1, whatsApp.length, 1).setRichTextValues(whatsApp);
+  sheet.getRange(2, C["Yes link"] + 1, links.length, 3).setValues(links);
 }
 
-/** Two sessions for your own email: one just finished, one later today. */
+/** Two sessions with no mobile or email: one just finished, one later today. */
 function addTestSessions() {
   var sheet = book_().getSheetByName(TAB.sessions);
   var tz = book_().getSpreadsheetTimeZone();
@@ -169,22 +200,32 @@ function addTestSessions() {
     return Utilities.formatDate(new Date(now.getTime() + offsetMinutes * MINUTE), tz, "HH:mm");
   };
   var today = Utilities.formatDate(now, tz, "dd/MM/yyyy");
-  sheet.appendRow(["Test Facilitator", "", "Test project", 1, today, at(-140), at(-20)]);
-  sheet.appendRow(["Test Facilitator", "", "Test project", 2, today, at(60), at(180)]);
+  var row = function (n, from, to) {
+    var r = SESSION_COLS.map(function () { return ""; });
+    r[C["Facilitator"]] = "Test Facilitator";
+    r[C["Project"]] = "Test project";
+    r[C["Session"]] = n;
+    r[C["Date"]] = today;
+    r[C["Start"]] = from;
+    r[C["End"]] = to;
+    return r.slice(0, C["End"] + 1);
+  };
+  sheet.appendRow(row(1, at(-140), at(-20)));
+  sheet.appendRow(row(2, at(60), at(180)));
   fillLinks();
-  alert_("Added two test sessions with no email, so reminders come to you. Run 'Send due reminders now' to get the first one.");
+  alert_("Added two test sessions. Put your own mobile in the Mobile column, then tap 'Send on WhatsApp' to send yourself the message.");
 }
 
-// ─── Reminders ──────────────────────────────────────────────────────────────
+// ─── Due check-ins ──────────────────────────────────────────────────────────
 
-/** Runs every 5 minutes. Safe to run as often as you like: each email goes once. */
+/** Runs every 5 minutes. Safe to run as often as you like: each step happens once. */
 function runReminders() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30 * 1000)) return;
   try {
     var cfg = config_();
     if (!cfg.url) {
-      Logger.log("No web app URL in Settings yet, so no reminders sent.");
+      Logger.log("No web app URL in Settings yet, so nothing to send.");
       return;
     }
     fillLinks();
@@ -197,6 +238,7 @@ function runReminders() {
     var values = range.getValues();
     var shown = range.getDisplayValues();
     var now = new Date();
+    var ready = [];
     var overdue = [];
 
     for (var i = 0; i < values.length; i++) {
@@ -204,23 +246,28 @@ function runReminders() {
       if (r[C["Status"]] || !r[C["Key"]]) continue;
       var t = sessionTimes_(r, shown[i], tz);
       if (!t || now - t.end > cfg.ignoreDays * DAY) continue;
-      var due = reminderTimes_(t.end, cfg, tz);
+      var due = dueTimes_(t.end, cfg, tz);
       var row = i + 2;
+      var stage = 0;
 
-      if (!r[C["Reminder 1 sent"]] && now >= due.first) {
-        // If we're already past the second reminder (e.g. first run after setup), send one email, not two.
-        var stage = now >= due.second ? 2 : 1;
-        if (sendReminder_(r, t, stage, cfg, tz)) {
-          stamp_(sheet, row, "Reminder 1 sent", now);
-          if (stage === 2) stamp_(sheet, row, "Reminder 2 sent", now);
-        }
-      } else if (r[C["Reminder 1 sent"]] && !r[C["Reminder 2 sent"]] && now >= due.second) {
-        if (sendReminder_(r, t, 2, cfg, tz)) stamp_(sheet, row, "Reminder 2 sent", now);
+      if (!r[C["Check-in due"]] && now >= due.checkIn) {
+        // Past both times already (e.g. first run after setup): one nudge, not two.
+        stage = now >= due.reminder ? 2 : 1;
+        stamp_(sheet, row, "Check-in due", now);
+        if (stage === 2) stamp_(sheet, row, "Reminder due", now);
+      } else if (r[C["Check-in due"]] && !r[C["Reminder due"]] && now >= due.reminder) {
+        stage = 2;
+        stamp_(sheet, row, "Reminder due", now);
+      }
+      if (stage) {
+        ready.push({ r: r, t: t, stage: stage });
+        if (cfg.emailFacilitators && r[C["Email"]]) emailFacilitator_(r, t, stage, cfg, tz);
       }
       if (!r[C["Coordinator told"]] && now >= due.escalate) overdue.push({ row: row, r: r, t: t });
     }
 
-    if (overdue.length && sendEscalation_(overdue, cfg, tz)) {
+    if (ready.length && cfg.nudgeCoordinator) emailReadyList_(ready, cfg, tz);
+    if (overdue.length && emailOverdue_(overdue, cfg, tz)) {
       overdue.forEach(function (o) { stamp_(sheet, o.row, "Coordinator told", now); });
     }
   } finally {
@@ -228,38 +275,88 @@ function runReminders() {
   }
 }
 
-function reminderTimes_(end, cfg, tz) {
-  var first = new Date(end.getTime() + cfg.firstMinutes * MINUTE);
+function dueTimes_(end, cfg, tz) {
+  var checkIn = new Date(end.getTime() + cfg.checkInMinutes * MINUTE);
   var noonNextDay = new Date(parseLocal_(Utilities.formatDate(end, tz, "yyyy-MM-dd"), "12:00", tz).getTime() + DAY);
-  var second = parseLocal_(Utilities.formatDate(noonNextDay, tz, "yyyy-MM-dd"), pad_(cfg.secondHour) + ":00", tz);
-  var escalate = new Date(Math.max(end.getTime() + cfg.escalateHours * HOUR, second.getTime() + 2 * HOUR));
-  return { first: first, second: second, escalate: escalate };
+  var reminder = parseLocal_(Utilities.formatDate(noonNextDay, tz, "yyyy-MM-dd"), pad_(cfg.reminderHour) + ":00", tz);
+  var escalate = new Date(Math.max(end.getTime() + cfg.escalateHours * HOUR, reminder.getTime() + 2 * HOUR));
+  return { checkIn: checkIn, reminder: reminder, escalate: escalate };
 }
 
-function sendReminder_(r, t, stage, cfg, tz) {
-  var name = firstName_(r[C["Facilitator"]]);
-  var when = describeWhen_(t, tz);
+/** The message the facilitator gets, by WhatsApp, text or email. */
+function checkInMessage_(r, t, tz, yesLink, changeLink, reminder) {
+  return [
+    (reminder ? "Reminder: " : "") + "Hi " + firstName_(r[C["Facilitator"]]) + ". Session " + r[C["Session"]] + ", " +
+      r[C["Project"]] + ", " + describeWhen_(t, tz) + ".",
+    "",
+    "Did it happen? Tap to confirm:",
+    yesLink,
+    "",
+    "Did anything change? Only tap this if something was different, like a late start, extra time, travel or a cancellation:",
+    changeLink,
+  ].join("\n");
+}
+
+/** A wa.me link that opens WhatsApp with the message ready. Someone still presses send. */
+function whatsAppUrl_(mobile, message) {
+  var number = ukMobile_(mobile);
+  return "https://wa.me/" + number + "?text=" + encodeURIComponent(message);
+}
+
+/** "07700 900123", "+44 7700 900123" or 7700900123 (Sheets dropped the 0) → "447700900123". */
+function ukMobile_(value) {
+  var d = String(value == null ? "" : value).replace(/\D/g, "");
+  if (!d) return "";
+  if (d.indexOf("00") === 0) d = d.slice(2);
+  else if (d.indexOf("0") === 0) d = "44" + d.slice(1);
+  else if (d.length === 10 && d.charAt(0) === "7") d = "44" + d;
+  return d;
+}
+
+function linksFor_(r) {
+  return { yes: r[C["Yes link"]], change: r[C["Change link"]] };
+}
+
+function emailFacilitator_(r, t, stage, cfg, tz) {
+  var l = linksFor_(r);
   var subject = (stage === 1 ? "Did session " : "Reminder: did session ") + r[C["Session"]] + " happen? (" +
     Utilities.formatDate(t.end, tz, "EEE d MMM") + ")";
+  var button = function (href, label, colour) {
+    return "<p><a href=\"" + esc_(href) + "\" style=\"display:inline-block;background:" + colour +
+      ";color:#ffffff;padding:16px 24px;font-size:16px;font-weight:bold;text-decoration:none\">" + label + "</a></p>";
+  };
   var html =
-    "<p>Hi " + esc_(name) + ",</p>" +
-    "<p>Did your " + esc_(r[C["Project"]]) + " session on <b>" + esc_(when) + "</b> happen as planned?</p>" +
-    "<p><a href=\"" + esc_(r[C["Link"]]) + "\" style=\"display:inline-block;background:#15803d;color:#ffffff;" +
-    "padding:16px 24px;font-size:16px;font-weight:bold;text-decoration:none\">Answer in 10 seconds</a></p>" +
-    "<p style=\"color:#52525b;font-size:14px\">If anything changed, like a late start, extra time, travel or a " +
-    "cancellation, you can tell us on the same page.</p>";
+    "<p>Hi " + esc_(firstName_(r[C["Facilitator"]])) + ",</p>" +
+    "<p>Session " + esc_(r[C["Session"]]) + ", " + esc_(r[C["Project"]]) + ", <b>" + esc_(describeWhen_(t, tz)) + "</b>.</p>" +
+    "<p>Did it happen? Tap to confirm:</p>" + button(l.yes, "Yes, it happened", "#15803d") +
+    "<p>Did anything change? Only tap this if something was different:</p>" + button(l.change, "Something changed", "#2d0054");
   return send_(r[C["Email"]], subject, html, cfg);
 }
 
-function sendEscalation_(overdue, cfg, tz) {
+function emailReadyList_(ready, cfg, tz) {
+  var items = ready.map(function (x) {
+    var l = linksFor_(x.r);
+    var link = whatsAppUrl_(x.r[C["Mobile"]], checkInMessage_(x.r, x.t, tz, l.yes, l.change, x.stage === 2));
+    return "<li style=\"margin-bottom:16px\"><b>" + esc_(x.r[C["Facilitator"]]) + "</b>, session " + esc_(x.r[C["Session"]]) +
+      " (" + esc_(describeWhen_(x.t, tz)) + ")" + (x.stage === 2 ? ", still no answer" : "") +
+      (x.r[C["Mobile"]] ? "" : ". No mobile in the sheet, so WhatsApp will ask you to pick the contact") +
+      "<br><a href=\"" + esc_(link) + "\">" + (x.stage === 2 ? "Send reminder on WhatsApp" : "Send on WhatsApp") + "</a></li>";
+  }).join("");
+  var html =
+    "<p>Tap each link to open WhatsApp with the check-in message ready, then press send.</p><ul>" + items + "</ul>";
+  return send_(cfg.coordinator, ready.length + " check-in" + (ready.length === 1 ? "" : "s") + " ready to send on WhatsApp", html, cfg);
+}
+
+function emailOverdue_(overdue, cfg, tz) {
   var items = overdue.map(function (o) {
+    var l = linksFor_(o.r);
     return "<li><b>" + esc_(o.r[C["Facilitator"]]) + "</b>, " + esc_(o.r[C["Project"]]) + ", session " +
-      esc_(o.r[C["Session"]]) + " (" + esc_(describeWhen_(o.t, tz)) + "). <a href=\"" + esc_(o.r[C["Link"]]) +
-      "\">Their check-in link</a></li>";
+      esc_(o.r[C["Session"]]) + " (" + esc_(describeWhen_(o.t, tz)) + "). <a href=\"" +
+      esc_(whatsAppUrl_(o.r[C["Mobile"]], checkInMessage_(o.r, o.t, tz, l.yes, l.change, true))) + "\">Chase on WhatsApp</a></li>";
   }).join("");
   var html =
     "<p>These sessions still have no answer " + cfg.escalateHours + " hours after they ended:</p><ul>" + items + "</ul>" +
-    "<p>They are red in the Sessions tab. You can forward a link to the facilitator by text or WhatsApp.</p>";
+    "<p>They are red in the Sessions tab.</p>";
   return send_(cfg.coordinator, overdue.length + " session" + (overdue.length === 1 ? "" : "s") + " not confirmed", html, cfg);
 }
 
@@ -281,11 +378,13 @@ function stamp_(sheet, row, column, when) {
 
 // ─── The facilitator's page ─────────────────────────────────────────────────
 
+/** ?k=key&a=yes confirms the session; ?k=key&a=change opens the form. */
 function doGet(e) {
-  var key = e && e.parameter ? String(e.parameter.k || "") : "";
+  var p = e && e.parameter ? e.parameter : {};
+  var key = String(p.k || "");
   var found = key ? findSession_(key) : null;
   var template = HtmlService.createTemplateFromFile("CheckIn");
-  template.data = found ? publicView_(found) : null;
+  template.data = found ? publicView_(found, p.a === "yes" || p.a === "change" ? p.a : "") : null;
   return template
     .evaluate()
     .setTitle("Session check-in")
@@ -299,9 +398,13 @@ function submitCheckIn(key, answer) {
   try {
     var s = findSession_(String(key || ""));
     if (!s) throw new Error("This link doesn't match a session any more. Ask your coordinator for a new one.");
+    var r = s.values;
+    // The yes link never overwrites an answer already given, e.g. changes sent first.
+    if (answer && answer.asPlanned === true && r[C["Status"]] && answer.replace !== true) {
+      return { status: String(r[C["Status"]]), summary: String(r[C["What changed"]] || ""), already: true };
+    }
     var a = checkAnswer_(answer, s);
     var now = new Date();
-    var r = s.values;
 
     book_().getSheetByName(TAB.checkIns).appendRow([
       now, r[C["Facilitator"]], r[C["Project"]], r[C["Session"]], s.times.start || s.times.end,
@@ -413,11 +516,12 @@ function findSession_(key) {
   return null;
 }
 
-/** What the page is allowed to see: no emails, no other sessions. */
-function publicView_(s) {
+/** What the page is allowed to see: no phone numbers or emails, no other sessions. */
+function publicView_(s, mode) {
   var r = s.values;
   return {
     key: s.key,
+    mode: mode,
     name: firstName_(r[C["Facilitator"]]),
     project: String(r[C["Project"]] || ""),
     session: String(r[C["Session"]] || ""),
@@ -448,13 +552,19 @@ function config_() {
     var n = Number(setting_(label));
     return n > 0 ? n : fallback;
   };
+  var yes = function (label, fallback) {
+    var v = String(setting_(label)).trim().toLowerCase();
+    return v ? v === "yes" || v === "y" || v === "true" : fallback;
+  };
   return {
     url: String(setting_("Web app URL") || "").trim(),
     coordinator: String(setting_("Coordinator email") || "").trim(),
+    nudgeCoordinator: yes("Email the coordinator when a check-in is due", true),
+    emailFacilitators: yes("Also email facilitators", false),
     replyTo: String(setting_("Reply-to email") || "").trim(),
     senderName: String(setting_("Sender name") || "YUAF").trim(),
-    firstMinutes: num("First reminder (minutes after the session ends)", 15),
-    secondHour: Math.min(23, num("Second reminder (hour of the next day, 24h clock)", 9)),
+    checkInMinutes: num("Check-in due (minutes after the session ends)", 15),
+    reminderHour: Math.min(23, num("Reminder due (hour of the next day, 24h clock)", 9)),
     escalateHours: num("Tell the coordinator after (hours)", 24),
     ignoreDays: num("Ignore sessions older than (days)", 7),
   };

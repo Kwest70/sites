@@ -110,47 +110,74 @@
       }
 
       function send(answer, button) {
-        button.disabled = true;
+        if (button) button.disabled = true;
         var error = document.getElementById("error");
         if (error) error.textContent = "";
         google.script.run
           .withSuccessHandler(function (result) { thanks(result); })
           .withFailureHandler(function (err) {
-            button.disabled = false;
+            if (button) button.disabled = false;
+            var message = (err && err.message) || "That didn't send. Check your signal and try again.";
             var box = document.getElementById("error");
-            if (box) box.textContent = (err && err.message) || "That didn't send. Check your signal and try again.";
-            else alert((err && err.message) || "That didn't send. Try again.");
+            if (box) box.textContent = message;
+            else failed(message);
           })
           .submitCheckIn(DATA.key, answer);
       }
 
-      // ── Screen 1: the question ──
-      function question() {
+      function failed(message) {
+        var retry = el("button", { class: "yes", text: "Try again" });
+        retry.addEventListener("click", function () { send({ asPlanned: true }, retry); });
+        show(heading().concat([el("p", { class: "error", id: "error", role: "alert", text: message }), retry]));
+      }
+
+      // ── Link 1: "Did it happen?" records yes as soon as it opens ──
+      function confirmYes() {
+        if (DATA.status) return answered();
         if (!DATA.started) {
           show(heading().concat([
-            el("p", { class: "warn", text: "This session hasn't started yet. You can still tell us if it has been moved or cancelled." }),
-            el("button", { text: "Something changed", onclick: changeForm }),
+            el("p", { class: "warn", text: "This session hasn't started yet. Tap this link again once it has finished." }),
+            el("button", { text: "It was moved or cancelled", onclick: changeForm }),
           ]));
           return;
         }
-        if (DATA.status) {
-          show(heading().concat([
-            el("p", { class: "summary" }, [
-              el("b", { text: "You answered on " + DATA.answeredAt + ": " + DATA.status }),
-              DATA.summary && DATA.summary !== "As planned" ? el("span", { text: " · " + DATA.summary }) : null,
-            ]),
-            el("button", { text: "Something changed", onclick: changeForm }),
-            el("p", { class: "note", text: "A new answer replaces this one in the sheet. Both stay in the log." }),
-          ]));
-          return;
+        show([
+          el("p", { class: "eyebrow", text: "Hi " + DATA.name + " · session check-in" }),
+          el("h1", { text: "Confirming session " + DATA.session + "…" }),
+          el("p", { class: "when" }, [el("b", { text: DATA.when }), document.createTextNode(DATA.project)]),
+        ]);
+        send({ asPlanned: true });
+      }
+
+      // What someone sees if they open a link after already answering.
+      function answered() {
+        var nodes = heading().concat([
+          el("p", { class: "summary" }, [
+            el("b", { text: "You answered on " + DATA.answeredAt + ": " + DATA.status }),
+            DATA.summary && DATA.summary !== "As planned" ? el("span", { text: " · " + DATA.summary }) : null,
+          ]),
+          el("p", { class: "error", id: "error", role: "alert" }),
+        ]);
+        if (DATA.status !== "Delivered") {
+          var yes = el("button", { class: "yes", text: "It happened as planned" });
+          yes.addEventListener("click", function () { send({ asPlanned: true, replace: true }, yes); });
+          nodes.push(yes);
         }
+        nodes.push(el("button", { text: "Something changed", onclick: changeForm }));
+        nodes.push(el("p", { class: "note", text: "A new answer replaces this one in the sheet. Both stay in the log." }));
+        show(nodes);
+      }
+
+      // Old-style link with no ?a=: ask the question with both buttons.
+      function question() {
+        if (DATA.status) return answered();
+        if (!DATA.started) return confirmYes();
         var yes = el("button", { class: "yes", text: "Yes, it happened" });
         yes.addEventListener("click", function () { send({ asPlanned: true }, yes); });
         show(heading().concat([
           el("p", { class: "error", id: "error", role: "alert" }),
           yes,
           el("button", { text: "Something changed", onclick: changeForm }),
-          el("p", { class: "note", text: "Late start, extra time, a different day, travel or a cancellation? Tap 'Something changed'." }),
         ]));
       }
 
@@ -268,24 +295,29 @@
         });
 
         show([
-          el("p", { class: "eyebrow", text: "Session " + DATA.session + " · " + DATA.when }),
+          el("p", { class: "eyebrow", text: "Hi " + DATA.name + " · session " + DATA.session + " · " + DATA.when }),
           el("h1", { text: "What changed?" }),
           form,
         ]);
       }
 
-      // ── Screen 3: thanks ──
+      // ── Thanks ──
       function thanks(result) {
         DATA.status = result.status;
         DATA.summary = result.summary;
         var delivered = result.summary === "As planned";
+        var line = result.already
+          ? "You'd already told us: " + result.status + (delivered || !result.summary ? "." : " · " + result.summary)
+          : delivered
+            ? "Session " + DATA.session + " is marked as delivered."
+            : "We've recorded: " + result.summary;
         show([
           el("div", { class: "done" }, [
             el("div", { class: "tick", "aria-hidden": "true", text: "✓" }),
             el("h1", { text: "Thanks, " + DATA.name + "." }),
-            el("p", { class: "summary", text: delivered ? "Session " + DATA.session + " is marked as delivered." : "We've recorded: " + result.summary }),
-            el("p", { class: "note", text: "You can close this page." }),
-            el("button", { type: "button", class: "link", text: delivered ? "Not right? Tell us what changed" : "Change this answer", onclick: changeForm }),
+            el("p", { class: "summary", text: line }),
+            el("p", { class: "note", text: delivered ? "If anything changed, use the second link in the message, or tap below. Otherwise you can close this page." : "You can close this page." }),
+            el("button", { type: "button", class: "link", text: delivered ? "Something changed" : "Change this answer", onclick: changeForm }),
           ]),
         ]);
       }
@@ -295,6 +327,10 @@
           el("h1", { text: "This link doesn't work" }),
           el("p", { text: "It may be old or mistyped. Ask your coordinator to send it again." }),
         ]);
+      } else if (DATA.mode === "yes") {
+        confirmYes();
+      } else if (DATA.mode === "change") {
+        changeForm();
       } else {
         question();
       }
