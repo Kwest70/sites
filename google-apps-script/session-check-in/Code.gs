@@ -8,21 +8,34 @@
  *                              cancelled, travel, other expense.
  * Answers land in the sheet, where the Status cell turns green.
  *
- * Texts go automatically through Voodoo SMS. Until a Voodoo API key is added the
- * sheet runs in test mode: each text is written to the Message log, not sent.
- * WhatsApp needs a Meta business account to send automatically, so on WhatsApp
- * the coordinator gets a one-tap "Send on WhatsApp" link instead.
+ * Texts go out automatically from an Android phone running the free SMS Gateway
+ * for Android app (or through Voodoo SMS, if you prefer a paid service). Texts
+ * only go during "phone hours", when the phone is switched on; anything due
+ * outside them waits. Until the phone is connected the sheet runs in test mode
+ * and writes each text to the Message log instead of sending it.
  *
- * Tabs: Sessions (the schedule, filled in by the coordinator), Check-ins (every
- * answer, never edited), Message log (every text sent) and Settings.
+ * Contracts are added once in the Contracts tab; "Make sessions from new
+ * contracts" turns each one into its sessions.
+ *
+ * Tabs: Contracts, Sessions, Check-ins (every answer, never edited), Message log
+ * (every text) and Settings.
  */
 
-var TAB = { sessions: "Sessions", checkIns: "Check-ins", log: "Message log", settings: "Settings" };
+var TAB = { contracts: "Contracts", sessions: "Sessions", checkIns: "Check-ins", log: "Message log", settings: "Settings" };
+
+var CONTRACT_COLS = [
+  "Facilitator", "Mobile", "Email", "Project", "Role", "Venue",
+  "Rate (£ an hour)", "Delivery hours per session", "Admin hours per session", "Travel (£ per session)",
+  "First session", "Repeats", "Number of sessions", "Other dates", "Start", "End",
+  "Contract file", "Sessions made",
+];
+var K = {};
+CONTRACT_COLS.forEach(function (h, i) { K[h] = i; });
 
 var SESSION_COLS = [
   "Facilitator", "Mobile", "Email", "Project", "Session", "Date", "Start", "End",
   "Status", "Answered at", "What changed", "Send on WhatsApp",
-  "Check-in due", "Reminder due", "Coordinator told",
+  "Check-in sent", "Reminder sent", "Coordinator told",
   "Yes link", "Change link", "Key",
 ];
 var C = {};
@@ -39,8 +52,10 @@ var LOG_COLS = ["Time", "Sent by", "To", "Facilitator", "Session", "Which", "Mes
 
 var SETTINGS = [
   ["Web app URL", "", "Paste the link ending in /exec from Deploy > Manage deployments."],
-  ["Send check-ins by", "Text", "Text, WhatsApp or Email. Text is automatic (Voodoo SMS). WhatsApp means the coordinator taps to send."],
-  ["Text sender name", "YUAF", "Who the text says it's from. Up to 11 letters or numbers."],
+  ["Send check-ins by", "Text", "Text, WhatsApp or Email. Text is automatic. WhatsApp means the coordinator taps to send."],
+  ["Texts go through", "Phone", "Phone (free: an Android phone with the SMS Gateway app) or Voodoo (paid)."],
+  ["Phone hours", "Wed 09:00-17:30, Thu 09:00-17:30", "When the phone is switched on. Texts due outside these hours wait. Example: Mon-Fri 09:00-17:30."],
+  ["Text sender name", "YUAF", "Voodoo only: who the text says it's from. Texts from the phone show its number."],
   ["Coordinator email", "", "Hears about failed texts and unanswered sessions. Blank sends to you."],
   ["Reply-to email", "", "Where replies to emails go. Blank uses your address."],
   ["Email sender name", "YUAF", "Shown as the email sender."],
@@ -75,9 +90,11 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Check-ins")
     .addItem("Set up this sheet", "setup")
+    .addItem("Make sessions from new contracts", "makeSessions")
     .addItem("Check for due sessions now", "runReminders")
     .addItem("Make links for new rows", "fillLinks")
     .addSeparator()
+    .addItem("Connect the phone", "connectPhone")
     .addItem("Add Voodoo SMS key", "addSmsKey")
     .addItem("Send a test text", "sendTestText")
     .addItem("Add two test sessions", "addTestSessions")
@@ -89,6 +106,7 @@ function setup() {
   ss.setSpreadsheetTimeZone("Europe/London");
   PropertiesService.getScriptProperties().setProperty("SHEET_ID", ss.getId());
 
+  var contracts = ensureTab_(ss, TAB.contracts, CONTRACT_COLS);
   var sessions = ensureTab_(ss, TAB.sessions, SESSION_COLS);
   ensureTab_(ss, TAB.checkIns, CHECK_IN_COLS);
   ensureTab_(ss, TAB.log, LOG_COLS);
@@ -104,13 +122,19 @@ function setup() {
     if (url) setSetting_("Web app URL", url);
   }
 
+  var crows = contracts.getMaxRows() - 1;
+  contracts.getRange(2, K["Mobile"] + 1, crows, 1).setNumberFormat("@");
+  contracts.getRange(2, K["First session"] + 1, crows, 1).setNumberFormat("dd/mm/yyyy");
+  contracts.getRange(2, K["Other dates"] + 1, crows, 1).setNumberFormat("@");
+  contracts.getRange(2, K["Start"] + 1, crows, 2).setNumberFormat("HH:mm");
+
   var rows = sessions.getMaxRows() - 1;
   // Plain text, so Sheets keeps the leading 0 of a mobile number.
   sessions.getRange(2, C["Mobile"] + 1, rows, 1).setNumberFormat("@");
   sessions.getRange(2, C["Date"] + 1, rows, 1).setNumberFormat("dd/mm/yyyy");
   sessions.getRange(2, C["Start"] + 1, rows, 2).setNumberFormat("HH:mm");
   sessions.getRange(2, C["Answered at"] + 1, rows, 1).setNumberFormat("dd/mm/yyyy HH:mm");
-  sessions.getRange(2, C["Check-in due"] + 1, rows, 3).setNumberFormat("dd/mm/yyyy HH:mm");
+  sessions.getRange(2, C["Check-in sent"] + 1, rows, 3).setNumberFormat("dd/mm/yyyy HH:mm");
   sessions.hideColumns(C["Key"] + 1);
   colourStatus_(sessions);
 
@@ -123,7 +147,7 @@ function setup() {
   alert_(
     setting_("Web app URL")
       ? "Set up. Add sessions to the Sessions tab. The sheet checks for finished sessions every 5 minutes." +
-        (smsKey_() ? "" : " Texts are in test mode until you add a Voodoo SMS key: they go to the Message log, not to phones.")
+        (textRouteReady_(config_()) ? "" : " Texts are in test mode until you connect the phone: they go to the Message log, not to phones.")
       : "Nearly there. Deploy the web app, paste its /exec link into Settings, then run Set up again.",
   );
 }
@@ -145,7 +169,7 @@ function letter_(column) {
 function colourStatus_(sheet) {
   var status = letter_("Status");
   var told = letter_("Coordinator told");
-  var due = letter_("Check-in due");
+  var due = letter_("Check-in sent");
   var range = sheet.getRange(2, C["Status"] + 1, sheet.getMaxRows() - 1, 1);
   var rule = function () { return SpreadsheetApp.newConditionalFormatRule().setRanges([range]); };
   sheet.setConditionalFormatRules([
@@ -153,7 +177,7 @@ function colourStatus_(sheet) {
     rule().whenTextEqualTo(STATUS.changed).setBackground("#fce8b2").build(),
     rule().whenTextEqualTo(STATUS.moved).setBackground("#fce8b2").build(),
     rule().whenTextEqualTo(STATUS.cancelled).setBackground("#e8eaed").build(),
-    // No answer and the coordinator has been told: red. Check-in due, still waiting: pale yellow.
+    // No answer and the coordinator has been told: red. Check-in sent, still waiting: pale yellow.
     rule().whenFormulaSatisfied("=AND($" + status + "2=\"\",$" + told + "2<>\"\")").setBackground("#f4c7c3").build(),
     rule().whenFormulaSatisfied("=AND($" + status + "2=\"\",$" + due + "2<>\"\")").setBackground("#fff2cc").build(),
   ]);
@@ -223,6 +247,81 @@ function addTestSessions() {
   alert_("Added two test sessions. Put your own mobile in the Mobile column, then tap 'Send on WhatsApp' to send yourself the message.");
 }
 
+// ─── Contracts ──────────────────────────────────────────────────────────────
+
+/**
+ * Menu: turns every contract without sessions yet into rows on the Sessions tab.
+ * Dates come from First session + Repeats + Number of sessions, plus any Other dates.
+ */
+function makeSessions() {
+  alert_(makeSessions_());
+}
+
+function makeSessions_() {
+  var ss = book_();
+  var contracts = ss.getSheetByName(TAB.contracts);
+  var sessions = ss.getSheetByName(TAB.sessions);
+  var tz = ss.getSpreadsheetTimeZone();
+  var last = contracts.getLastRow();
+  if (last < 2) return "No contracts yet. Add one to the Contracts tab first.";
+  var range = contracts.getRange(2, 1, last - 1, CONTRACT_COLS.length);
+  var values = range.getValues();
+  var shown = range.getDisplayValues();
+  var made = [];
+  var skipped = [];
+
+  values.forEach(function (c, i) {
+    if (!c[K["Facilitator"]] || c[K["Sessions made"]]) return;
+    var who = c[K["Facilitator"]] + " (" + (c[K["Project"]] || "no project") + ")";
+    var days = contractDates_(c, shown[i], tz);
+    var start = shown[i][K["Start"]];
+    var end = shown[i][K["End"]];
+    if (!days.length) return skipped.push(who + ": add the session dates");
+    if (!parseLocal_(days[0], start, tz) || !parseLocal_(days[0], end, tz)) return skipped.push(who + ": add a start and end time");
+    days.forEach(function (day, n) {
+      var row = SESSION_COLS.map(function () { return ""; }).slice(0, C["End"] + 1);
+      row[C["Facilitator"]] = c[K["Facilitator"]];
+      row[C["Mobile"]] = c[K["Mobile"]] ? String(c[K["Mobile"]]) : "";
+      row[C["Email"]] = c[K["Email"]];
+      row[C["Project"]] = c[K["Project"]];
+      row[C["Session"]] = n + 1;
+      row[C["Date"]] = parseLocal_(day, "12:00", tz);
+      row[C["Start"]] = start;
+      row[C["End"]] = end;
+      sessions.appendRow(row);
+    });
+    contracts.getRange(i + 2, K["Sessions made"] + 1).setValue(
+      days.length + " session" + (days.length === 1 ? "" : "s") + ", " + Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm"));
+    made.push(who + ": " + days.length);
+  });
+
+  fillLinks();
+  if (!made.length && !skipped.length) return "Nothing new: every contract already has its sessions.";
+  return (made.length ? "Made sessions for " + made.join("; ") + "." : "") +
+    (skipped.length ? (made.length ? " " : "") + "Not done yet: " + skipped.join("; ") + "." : "");
+}
+
+/** All session days for a contract, as sorted yyyy-MM-dd strings with no repeats. */
+function contractDates_(c, shown, tz) {
+  var days = {};
+  var first = dayString_(c[K["First session"]], shown[K["First session"]], tz);
+  var count = Math.min(52, Math.round(Number(c[K["Number of sessions"]]) || 0));
+  var repeats = String(c[K["Repeats"]] || "").toLowerCase();
+  var step = repeats.indexOf("fortnight") === 0 ? 14 : repeats.indexOf("week") === 0 ? 7 : 0;
+  if (first) {
+    days[first] = true;
+    if (step && count > 1) {
+      var noon = parseLocal_(first, "12:00", tz).getTime();
+      for (var n = 1; n < count; n++) days[Utilities.formatDate(new Date(noon + n * step * DAY), tz, "yyyy-MM-dd")] = true;
+    }
+  }
+  String(shown[K["Other dates"]] || "").split(/[,;\n]/).forEach(function (d) {
+    var day = dayString_(null, d.trim(), tz);
+    if (day) days[day] = true;
+  });
+  return Object.keys(days).sort();
+}
+
 // ─── Due check-ins ──────────────────────────────────────────────────────────
 
 /** Runs every 5 minutes. Safe to run as often as you like: each step happens once. */
@@ -256,19 +355,18 @@ function runReminders() {
       var due = dueTimes_(t.end, cfg, tz);
       var row = i + 2;
       var stage = 0;
+      if (!r[C["Check-in sent"]] && now >= due.checkIn) stage = 1;
+      else if (r[C["Check-in sent"]] && !r[C["Reminder sent"]] && now >= due.reminder) stage = 2;
 
-      if (!r[C["Check-in due"]] && now >= due.checkIn) {
-        // Past both times already (e.g. first run after setup): one text, not two.
-        stage = now >= due.reminder ? 2 : 1;
-        stamp_(sheet, row, "Check-in due", now);
-        if (stage === 2) stamp_(sheet, row, "Reminder due", now);
-      } else if (r[C["Check-in due"]] && !r[C["Reminder due"]] && now >= due.reminder) {
-        stage = 2;
-        stamp_(sheet, row, "Reminder due", now);
-      }
       if (stage) {
-        var result = deliver_(r, t, stage, cfg, tz);
-        if (result.coordinator) ready.push({ r: r, t: t, stage: stage, why: result.coordinator });
+        // "Reminder" wording only if a check-in really went before.
+        var result = deliver_(r, t, stage, cfg, tz, now);
+        if (!result.hold) {
+          stamp_(sheet, row, stage === 1 ? "Check-in sent" : "Reminder sent", now);
+          // First contact already past the reminder time (e.g. phone was off): don't send a second text straight after.
+          if (stage === 1 && now >= due.reminder) stamp_(sheet, row, "Reminder sent", now);
+          if (result.coordinator) ready.push({ r: r, t: t, stage: stage, why: result.coordinator });
+        }
       }
       if (!r[C["Coordinator told"]] && now >= due.escalate) overdue.push({ row: row, r: r, t: t });
     }
@@ -283,10 +381,11 @@ function runReminders() {
 }
 
 /**
- * Sends one check-in by the chosen route. Returns { coordinator: reason } when the
- * coordinator needs to send it instead (WhatsApp, no mobile, or a failed text).
+ * Sends one check-in by the chosen route. Returns { hold: true } outside phone
+ * hours (try again next run), or { coordinator: reason } when the coordinator
+ * needs to send it instead (WhatsApp, no mobile, or a failed text).
  */
-function deliver_(r, t, stage, cfg, tz) {
+function deliver_(r, t, stage, cfg, tz, now) {
   var l = linksFor_(r);
   if (cfg.channel === "whatsapp") return { coordinator: "send" };
 
@@ -304,14 +403,118 @@ function deliver_(r, t, stage, cfg, tz) {
     log_("Text", "", r, stage, text, smsSegments_(text), "Not sent: no mobile in the sheet");
     return { coordinator: "No mobile in the sheet" };
   }
-  var key = smsKey_();
-  if (!key) {
-    log_("Text", to, r, stage, text, smsSegments_(text), "TEST MODE: not sent (no Voodoo SMS key yet)");
+  if (cfg.textRoute === "phone" && !inPhoneHours_(now || new Date(), cfg.phoneHours, tz)) return { hold: true };
+  var outcome = sendText_(cfg, to, text);
+  if (outcome.test) {
+    log_("Text", to, r, stage, text, smsSegments_(text), outcome.test);
     return {};
   }
-  var outcome = sendSms_(key, to, text, cfg.textSender);
   log_("Text", to, r, stage, text, smsSegments_(text), outcome.ok ? "Sent" : "Failed: " + outcome.error);
   return outcome.ok ? {} : { coordinator: "The text failed (" + outcome.error + ")" };
+}
+
+/** Sends through the phone or Voodoo, or reports test mode if neither is connected. */
+function sendText_(cfg, to, text) {
+  if (cfg.textRoute === "voodoo") {
+    var key = smsKey_();
+    return key ? sendSms_(key, to, text, cfg.textSender) : { test: "TEST MODE: not sent (no Voodoo SMS key yet)" };
+  }
+  var phone = phoneLogin_();
+  return phone ? sendPhoneSms_(phone, to, text) : { test: "TEST MODE: not sent (phone not connected yet)" };
+}
+
+function textRouteReady_(cfg) {
+  return cfg.textRoute === "voodoo" ? !!smsKey_() : !!phoneLogin_();
+}
+
+/**
+ * SMS Gateway for Android, cloud mode: POST /3rdparty/v1/messages with Basic auth
+ * (the username and password shown in the app) and { textMessage, phoneNumbers }.
+ * See https://docs.sms-gate.app/features/sending-messages/
+ * The text expires after an hour if the phone is unreachable, so a late check-in
+ * never turns up hours later.
+ */
+function sendPhoneSms_(login, to, text) {
+  try {
+    var res = UrlFetchApp.fetch("https://api.sms-gate.app/3rdparty/v1/messages", {
+      method: "post",
+      contentType: "application/json",
+      headers: { Authorization: "Basic " + Utilities.base64Encode(login.user + ":" + login.pass) },
+      payload: JSON.stringify({ textMessage: { text: text }, phoneNumbers: ["+" + to], ttl: 3600 }),
+      muteHttpExceptions: true,
+    });
+    var code = res.getResponseCode();
+    if (code >= 200 && code < 300) return { ok: true };
+    return { ok: false, error: "the phone service said " + code + ": " + String(res.getContentText()).slice(0, 200) };
+  } catch (err) {
+    return { ok: false, error: String(err).slice(0, 200) };
+  }
+}
+
+function phoneLogin_() {
+  var props = PropertiesService.getScriptProperties();
+  var user = props.getProperty("SMS_GATEWAY_USER");
+  var pass = props.getProperty("SMS_GATEWAY_PASS");
+  return user && pass ? { user: user, pass: pass } : null;
+}
+
+/** Menu: stores the phone app's cloud username and password out of sight. */
+function connectPhone() {
+  var ui = SpreadsheetApp.getUi();
+  var u = ui.prompt("Connect the phone (1 of 2)", "In the SMS Gateway app, open Cloud Server and copy the Username. Leave blank to disconnect.", ui.ButtonSet.OK_CANCEL);
+  if (u.getSelectedButton() !== ui.Button.OK) return;
+  if (!u.getResponseText().trim()) {
+    savePhoneLogin_("", "");
+    ui.alert("Phone disconnected. Texts are in test mode again.");
+    return;
+  }
+  var p = ui.prompt("Connect the phone (2 of 2)", "Now copy the Password from the same screen.", ui.ButtonSet.OK_CANCEL);
+  if (p.getSelectedButton() !== ui.Button.OK) return;
+  savePhoneLogin_(u.getResponseText(), p.getResponseText());
+  ui.alert("Connected. Use Check-ins > Send a test text to check it works.");
+}
+
+function savePhoneLogin_(user, pass) {
+  var props = PropertiesService.getScriptProperties();
+  user = String(user || "").trim();
+  pass = String(pass || "").trim();
+  if (user && pass) {
+    props.setProperty("SMS_GATEWAY_USER", user);
+    props.setProperty("SMS_GATEWAY_PASS", pass);
+  } else {
+    props.deleteProperty("SMS_GATEWAY_USER");
+    props.deleteProperty("SMS_GATEWAY_PASS");
+  }
+}
+
+var DAYS = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+
+/** "Wed 09:00-17:30, Thu 09:00-17:30" or "Mon-Fri 09:00-17:30" → windows. Blank means always. */
+function parsePhoneHours_(spec) {
+  var out = [];
+  String(spec || "").split(/[,;\n]/).forEach(function (part) {
+    var m = /^\s*([a-z]{3})[a-z]*\s*(?:-\s*([a-z]{3})[a-z]*)?\s+(\d{1,2})[:.](\d{2})\s*-\s*(\d{1,2})[:.](\d{2})\s*$/i.exec(part);
+    if (!m) return;
+    var a = DAYS[m[1].toLowerCase()];
+    var b = m[2] ? DAYS[m[2].toLowerCase()] : a;
+    if (a === undefined || b === undefined) return;
+    var days = [];
+    for (var d = a; ; d = (d + 1) % 7) {
+      days.push(d);
+      if (d === b) break;
+    }
+    out.push({ days: days, from: Number(m[3]) * 60 + Number(m[4]), to: Number(m[5]) * 60 + Number(m[6]) });
+  });
+  return out;
+}
+
+function inPhoneHours_(when, spec, tz) {
+  var windows = parsePhoneHours_(spec);
+  if (!windows.length) return true;
+  var day = DAYS[Utilities.formatDate(when, tz, "EEE").toLowerCase().slice(0, 3)];
+  var hm = Utilities.formatDate(when, tz, "HH:mm").split(":");
+  var minutes = Number(hm[0]) * 60 + Number(hm[1]);
+  return windows.some(function (w) { return w.days.indexOf(day) !== -1 && minutes >= w.from && minutes < w.to; });
 }
 
 /**
@@ -399,18 +602,22 @@ function sendTestText() {
 function testText_(mobile) {
   var to = ukMobile_(mobile);
   if (!to) return "That doesn't look like a mobile number.";
+  var cfg = config_();
   var text = "Test from the YUAF check-in sheet. If you got this, texts are working.";
-  var key = smsKey_();
   var fake = { length: 0 };
   fake[C["Facilitator"]] = "Test";
   fake[C["Session"]] = "-";
-  if (!key) {
-    log_("Text", to, fake, 0, text, smsSegments_(text), "TEST MODE: not sent (no Voodoo SMS key yet)");
-    return "No Voodoo SMS key yet, so nothing was sent. Add one from Check-ins > Add Voodoo SMS key.";
+  var outcome = sendText_(cfg, to, text);
+  if (outcome.test) {
+    log_("Text", to, fake, 0, text, smsSegments_(text), outcome.test);
+    return cfg.textRoute === "voodoo"
+      ? "No Voodoo SMS key yet, so nothing was sent. Add one from Check-ins > Add Voodoo SMS key."
+      : "The phone isn't connected yet, so nothing was sent. Use Check-ins > Connect the phone.";
   }
-  var outcome = sendSms_(key, to, text, config_().textSender);
   log_("Text", to, fake, 0, text, smsSegments_(text), outcome.ok ? "Sent" : "Failed: " + outcome.error);
-  return outcome.ok ? "Sent. Check the phone." : "It didn't send. " + outcome.error;
+  return outcome.ok
+    ? "Sent. Check the phone." + (cfg.textRoute === "phone" ? " (The sending phone must be on and online.)" : "")
+    : "It didn't send. " + outcome.error;
 }
 
 function dueTimes_(end, cfg, tz) {
@@ -701,6 +908,8 @@ function config_() {
   return {
     url: String(setting_("Web app URL") || "").trim(),
     channel: channel.indexOf("whats") === 0 ? "whatsapp" : channel.indexOf("email") === 0 ? "email" : "text",
+    textRoute: String(setting_("Texts go through") || "Phone").trim().toLowerCase().indexOf("voodoo") === 0 ? "voodoo" : "phone",
+    phoneHours: String(setting_("Phone hours") || ""),
     textSender: String(setting_("Text sender name") || "YUAF").replace(/[^A-Za-z0-9 ]/g, "").slice(0, 11) || "YUAF",
     coordinator: String(setting_("Coordinator email") || "").trim(),
     replyTo: String(setting_("Reply-to email") || "").trim(),
