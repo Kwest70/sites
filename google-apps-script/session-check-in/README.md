@@ -1,6 +1,6 @@
 # Session check-ins (Google Sheets + automatic texts)
 
-A small system for any project and any facilitator. Add a contract, and the sheet makes its sessions. Fifteen minutes after each session, the facilitator gets a text with two links. Nobody has to press send.
+A small system for any project and any facilitator. Paste in a contract's link, the sheet reads it and makes the sessions. Fifteen minutes after each session, the facilitator gets a text with two links. Nobody has to press send.
 
 ```
 Hi Kai. Session 4, 121 Creative Development, Thu 22 Oct, 18:00 to 20:00.
@@ -21,7 +21,7 @@ Everything runs in Google. Texts come from a spare **Android phone** running the
 
 | Tab | Who fills it | What it holds |
 | --- | --- | --- |
-| **Contracts** | The coordinator, once per contract | Facilitator, mobile, project, role, venue, rate, hours, travel, and the session pattern: first session, repeats (weekly or fortnightly), number of sessions, any other dates, start and end time, and a link to the contract file. |
+| **Contracts** | Paste the contract link; the sheet reads the rest | Contract file, notes on what's still needed, facilitator, mobile, project, role, venue, rate, hours, travel, and the session pattern: first session, repeats (weekly or fortnightly), number of sessions, any other dates, start and end time. |
 | **Sessions** | Made from Contracts (you can also type rows in) | One row per session. The script fills in Status, the answer and both personal links. Status turns green for *Delivered*, amber for changes, grey for cancelled, pale yellow once the check-in has gone and red if there's no answer 24 hours after the session ended. Move a session by editing its date or time here. |
 | **Check-ins** | The script | Every answer, with all the detail. Nothing here is ever overwritten, so it's the audit trail. |
 | **Message log** | The script | Every text: when, to whom, the exact words, how many texts it used, and whether it was sent. |
@@ -29,10 +29,29 @@ Everything runs in Google. Texts come from a spare **Android phone** running the
 
 ### Adding a contract
 
-1. Fill in a row on the **Contracts** tab. For example: First session *30/09/2026*, Repeats *Weekly*, Number of sessions *8*, Other dates *27/10/2026*, Start *11:30*, End *14:00*.
-2. **Check-ins > Make sessions from new contracts.**
+1. Paste the contract's Google Drive link into the first column (**Contract file**) of a new row on the **Contracts** tab.
+2. Within 5 minutes the sheet reads the contract's **Key Terms** table and fills in the row. Use **Check-ins > Read new contracts** to do it straight away.
+3. The **Contract notes** column says what's still needed, for example *Still needed: mobile, session dates, start and end times*. Add those.
+4. **Check-ins > Make sessions from new contracts.**
 
-That creates the 9 sessions in date order, numbered 1 to 9, ready for check-ins. A contract with no dates yet (for example "dates to confirm") is skipped, and the message says why. Running it again never duplicates anything.
+What it reads, from YUAF's contract template:
+
+| From the contract | Goes into |
+| --- | --- |
+| "*Name*, referred to as 'the Contractor'" | Facilitator |
+| PROJECT, ROLE (+ CREATIVE PRACTICE), VENUE | Project, Role, Venue |
+| RATE "£30 per hour" | Rate |
+| SESSIONS "6 sessions" or "six sessions" | Number of sessions |
+| TIMES "2 hours per session, plus 1 hour of admin per session" | Delivery and admin hours. Clock times like "11:30 to 14:00" go into Start and End. |
+| DATES, if they're listed (e.g. 30/09/2026 or 30 September 2026) | Other dates |
+| TRAVEL "£15 per session", if the contract has it | Travel |
+
+- **Never overwritten:** it only fills empty cells, so anything already typed in the row is kept.
+- **Not in the contract:** the mobile number isn't in the contract, and dates that say "to confirm" stay blank, so add those yourself.
+- **File types:** Word files and Google Docs work. A PDF (for example a signed copy) can't be read yet, and the note will say so: link the Word version instead.
+- **Permissions:** the first time it reads a file, Google asks permission for the sheet to open files in your Drive.
+
+Typing a row in by hand works too. Add the session pattern (for example First session *30/09/2026*, Repeats *Weekly*, Number of sessions *8*, Start *11:30*, End *14:00*). **Make sessions** creates them in date order, numbered, and never duplicates. A contract without dates is skipped, and the note says why.
 
 Rate, hours and travel aren't used by the check-ins yet. They're recorded so pro-formas can be built from the same sheet later.
 
@@ -65,7 +84,7 @@ This makes its own new sheet. It never touches any other spreadsheet, so use it 
 
 ### Try it in test mode
 
-1. Add a contract on the **Contracts** tab with today's date as the first session and a session that has just ended, then **Make sessions from new contracts**.
+1. Paste a contract link on the **Contracts** tab (or type a row in), set today as the first session with times that have just ended, add your own mobile, then **Make sessions from new contracts**.
 2. **Check-ins > Check for due sessions now.** The text appears in the **Message log**, marked *TEST MODE*.
 3. Copy link 1 from the Sessions tab into your phone's browser and watch the Status cell go green. Try link 2 for the form.
 

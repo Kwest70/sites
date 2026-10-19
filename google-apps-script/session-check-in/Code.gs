@@ -14,8 +14,9 @@
  * outside them waits. Until the phone is connected the sheet runs in test mode
  * and writes each text to the Message log instead of sending it.
  *
- * Contracts are added once in the Contracts tab; "Make sessions from new
- * contracts" turns each one into its sessions.
+ * Contracts: paste the contract's Drive link into the Contracts tab and the
+ * sheet reads its Key Terms table (Word file or Google Doc) and fills in the row.
+ * "Make sessions from new contracts" then turns each one into its sessions.
  *
  * Tabs: Contracts, Sessions, Check-ins (every answer, never edited), Message log
  * (every text) and Settings.
@@ -24,10 +25,11 @@
 var TAB = { contracts: "Contracts", sessions: "Sessions", checkIns: "Check-ins", log: "Message log", settings: "Settings" };
 
 var CONTRACT_COLS = [
+  "Contract file", "Contract notes",
   "Facilitator", "Mobile", "Email", "Project", "Role", "Venue",
   "Rate (£ an hour)", "Delivery hours per session", "Admin hours per session", "Travel (£ per session)",
   "First session", "Repeats", "Number of sessions", "Other dates", "Start", "End",
-  "Contract file", "Sessions made",
+  "Sessions made",
 ];
 var K = {};
 CONTRACT_COLS.forEach(function (h, i) { K[h] = i; });
@@ -90,6 +92,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Check-ins")
     .addItem("Set up this sheet", "setup")
+    .addItem("Read new contracts", "readContracts")
     .addItem("Make sessions from new contracts", "makeSessions")
     .addItem("Check for due sessions now", "runReminders")
     .addItem("Make links for new rows", "fillLinks")
@@ -249,6 +252,183 @@ function addTestSessions() {
 
 // ─── Contracts ──────────────────────────────────────────────────────────────
 
+/** Menu: reads any contract file that hasn't been read yet. */
+function readContracts() {
+  alert_(readContracts_() || "No new contract files to read. Paste a contract's Drive link into the first column of the Contracts tab.");
+}
+
+/**
+ * Reads each contract row with a file link and no notes yet. Fills only empty
+ * cells, so anything the coordinator typed is kept, then notes what's missing.
+ */
+function readContracts_() {
+  var ss = book_();
+  var sheet = ss.getSheetByName(TAB.contracts);
+  if (!sheet || sheet.getLastRow() < 2) return "";
+  var tz = ss.getSpreadsheetTimeZone();
+  var n = sheet.getLastRow() - 1;
+  var values = sheet.getRange(2, 1, n, CONTRACT_COLS.length).getValues();
+  var fileCells = sheet.getRange(2, K["Contract file"] + 1, n, 1);
+  var rich = fileCells.getRichTextValues ? fileCells.getRichTextValues() : null;
+  var said = [];
+
+  values.forEach(function (row, i) {
+    if (row[K["Contract notes"]]) return;
+    var link = (rich && rich[i][0] && rich[i][0].getLinkUrl && rich[i][0].getLinkUrl()) || String(row[K["Contract file"]] || "");
+    if (!link.trim()) return;
+    var note;
+    try {
+      var found = contractTerms_(readContractFile_(link));
+      var filled = row.slice();
+      Object.keys(found).forEach(function (col) {
+        if (filled[K[col]] === "" || filled[K[col]] === null) filled[K[col]] = found[col];
+      });
+      sheet.getRange(i + 2, 1, 1, CONTRACT_COLS.length).setValues([filled]);
+      var missing = [];
+      if (!filled[K["Facilitator"]]) missing.push("facilitator");
+      if (!filled[K["Mobile"]]) missing.push("mobile");
+      if (!filled[K["First session"]] && !filled[K["Other dates"]]) missing.push("session dates");
+      if (!filled[K["Start"]] || !filled[K["End"]]) missing.push("start and end times");
+      note = "Read " + Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm") + ". " +
+        (missing.length
+          ? "Still needed: " + missing.join(", ") + ". Then Make sessions."
+          : "Ready: check it, then Make sessions.");
+      said.push((filled[K["Facilitator"]] || "Row " + (i + 2)) + ": " + note);
+    } catch (err) {
+      note = "Couldn't read this file: " + (err && err.message ? err.message : err) + " Fill the row in by hand.";
+      said.push("Row " + (i + 2) + ": " + note);
+    }
+    sheet.getRange(i + 2, K["Contract notes"] + 1).setValue(note);
+  });
+  return said.join("\n");
+}
+
+/** Opens a Word file or Google Doc from its Drive link. Returns its tables and text. */
+function readContractFile_(link) {
+  var m = /\/d\/([A-Za-z0-9_-]{20,})/.exec(link) || /[?&]id=([A-Za-z0-9_-]{20,})/.exec(link) || /^([A-Za-z0-9_-]{20,})$/.exec(String(link).trim());
+  if (!m) throw new Error("that isn't a Google Drive link.");
+  var file = DriveApp.getFileById(m[1]);
+  var type = file.getMimeType();
+  var name = String(file.getName() || "");
+
+  if (type === "application/vnd.google-apps.document") {
+    var body = DocumentApp.openById(m[1]).getBody();
+    var tables = body.getTables().map(function (t) {
+      var rows = [];
+      for (var r = 0; r < t.getNumRows(); r++) {
+        var row = t.getRow(r);
+        var cells = [];
+        for (var c = 0; c < row.getNumCells(); c++) cells.push(row.getCell(c).getText());
+        rows.push(cells);
+      }
+      return rows;
+    });
+    return { tables: tables, text: body.getText() };
+  }
+  if (type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(name)) {
+    var parts = Utilities.unzip(file.getBlob().setContentType("application/zip"));
+    var doc = parts.filter(function (p) { return p.getName() === "word/document.xml"; })[0];
+    if (!doc) throw new Error("it doesn't look like a Word file.");
+    return docxContent_(doc.getDataAsString("UTF-8"));
+  }
+  if (type === "application/pdf" || /\.pdf$/i.test(name)) {
+    throw new Error("it's a PDF, which the sheet can't read yet. Link the Word or Google Docs version instead.");
+  }
+  throw new Error("it isn't a Word file or Google Doc.");
+}
+
+/** Tables and paragraph text from a Word file's document.xml. */
+function docxContent_(xml) {
+  var text = function (chunk) {
+    return (chunk.match(/<w:t(?: [^>]*)?>[^<]*<\/w:t>/g) || [])
+      .map(function (t) { return xmlDecode_(t.replace(/<[^>]+>/g, "")); })
+      .join("");
+  };
+  var tables = (xml.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) || []).map(function (tbl) {
+    return (tbl.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) || []).map(function (tr) {
+      return (tr.match(/<w:tc[ >][\s\S]*?<\/w:tc>/g) || []).map(text);
+    });
+  });
+  var paragraphs = (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).map(text);
+  return { tables: tables, text: paragraphs.join("\n") };
+}
+
+function xmlDecode_(s) {
+  return s
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, function (_, n) { return String.fromCharCode(Number(n)); })
+    .replace(/&amp;/g, "&");
+}
+
+var NUMBER_WORDS = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, twenty: 20,
+};
+
+/**
+ * Turns a contract's Key Terms table into Contracts-tab columns. Built for YUAF's
+ * template: rows of LABEL | value | LABEL | value, and "Name, referred to as
+ * 'the Contractor'" in the Parties section. Anything not found is left out.
+ */
+function contractTerms_(content) {
+  var terms = {};
+  content.tables.forEach(function (rows) {
+    rows.forEach(function (cells) {
+      for (var i = 0; i + 1 < cells.length; i += 2) {
+        var label = String(cells[i]).trim().toUpperCase();
+        if (label && !terms[label]) terms[label] = String(cells[i + 1]).trim();
+      }
+    });
+  });
+  var out = {};
+  var name = /([^\n,“”"]+?),\s*referred to as\s*[“"']the Contractor/i.exec(content.text);
+  if (name) out["Facilitator"] = name[1].trim();
+  else if (terms["CONTRACTOR"] || terms["FACILITATOR"] || terms["NAME"]) out["Facilitator"] = terms["CONTRACTOR"] || terms["FACILITATOR"] || terms["NAME"];
+
+  if (terms["PROJECT"]) out["Project"] = terms["PROJECT"];
+  if (terms["ROLE"]) out["Role"] = terms["ROLE"] + (terms["CREATIVE PRACTICE"] ? " (" + terms["CREATIVE PRACTICE"] + ")" : "");
+  if (terms["VENUE"]) out["Venue"] = terms["VENUE"];
+  var rate = /£\s*(\d+(?:\.\d+)?)/.exec(terms["RATE"] || "");
+  if (rate) out["Rate (£ an hour)"] = Number(rate[1]);
+  var travel = /£\s*(\d+(?:\.\d+)?)/.exec(terms["TRAVEL"] || "");
+  if (travel) out["Travel (£ per session)"] = Number(travel[1]);
+
+  var sessions = String(terms["SESSIONS"] || "");
+  var count = /(\d+)/.exec(sessions) || new RegExp("\\b(" + Object.keys(NUMBER_WORDS).join("|") + ")\\b", "i").exec(sessions);
+  if (count) out["Number of sessions"] = /^\d+$/.test(count[1]) ? Number(count[1]) : NUMBER_WORDS[count[1].toLowerCase()];
+
+  var times = String(terms["TIMES"] || "");
+  var delivery = /(\d+(?:\.\d+)?)\s*hours?\s*(?:of delivery\s*)?per session/i.exec(times);
+  if (delivery) out["Delivery hours per session"] = Number(delivery[1]);
+  var admin = /(\d+(?:\.\d+)?)\s*hours?\s*of admin/i.exec(times);
+  if (admin) out["Admin hours per session"] = Number(admin[1]);
+  var clock = /(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)\s*(?:-|–|to)\s*(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)/i.exec(times);
+  if (clock) {
+    out["Start"] = clock[1].replace(".", ":").trim();
+    out["End"] = clock[2].replace(".", ":").trim();
+  }
+
+  var dates = contractDateList_(String(terms["DATES"] || ""));
+  if (dates.length) out["Other dates"] = dates.join(", ");
+  return out;
+}
+
+var MONTH_NUMBERS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+/** "30/09/2026", "30 September 2026" or "Wed 30 Sep 2026" → "30/09/2026". Placeholders give nothing. */
+function contractDateList_(text) {
+  var out = [];
+  var push = function (d, m, y) {
+    if (d >= 1 && d <= 31 && m >= 1 && m <= 12) out.push(pad_(d) + "/" + pad_(m) + "/" + y);
+  };
+  var re1 = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+  var m;
+  while ((m = re1.exec(text))) push(Number(m[1]), Number(m[2]), m[3]);
+  var re2 = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{4})\b/gi;
+  while ((m = re2.exec(text))) push(Number(m[1]), MONTH_NUMBERS[m[2].toLowerCase()], m[3]);
+  return out.filter(function (d, i) { return out.indexOf(d) === i; });
+}
+
 /**
  * Menu: turns every contract without sessions yet into rows on the Sessions tab.
  * Dates come from First session + Repeats + Number of sessions, plus any Other dates.
@@ -329,6 +509,11 @@ function runReminders() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30 * 1000)) return;
   try {
+    try {
+      readContracts_();
+    } catch (err) {
+      Logger.log("Reading contracts failed: " + err);
+    }
     var cfg = config_();
     if (!cfg.url) {
       Logger.log("No web app URL in Settings yet, so nothing to send.");
