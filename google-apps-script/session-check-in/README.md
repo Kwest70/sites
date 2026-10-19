@@ -34,20 +34,35 @@ Everything runs in Google. Texts come from a spare **Android phone** running the
 3. The **Contract notes** column says what's still needed, for example *Still needed: mobile, session dates, start and end times*. Add those.
 4. **Check-ins > Make sessions from new contracts.**
 
-What it reads, from YUAF's contract template:
+**Best format: a Google Doc** with this Key Terms table. Then the sheet reads everything and nothing needs typing:
+
+| | | | |
+| --- | --- | --- | --- |
+| **ROLE** | Facilitator | **PROJECT** | Amplify Hillingdon |
+| **CONTRACTOR** | Full name | **MOBILE** | 07700 900123 |
+| **EMAIL** | name@example.com | **VENUE** | Studio Bus, West Drayton |
+| **SESSIONS** | 8 sessions | **DATES** | Every Wednesday from 30/09/2026 *(or list them: 30/09/2026, 07/10/2026, …)* |
+| **TIMES** | 11:30 to 14:00, 2.5 hours per session, plus 1 hour of admin per session | **RATE** | £30 per hour |
+| **TRAVEL** | £15 per session | **TOTAL FEE** | £… |
+
+"Every Wednesday from…" with "8 sessions" becomes a weekly pattern; "every other Wednesday" or "fortnightly" works too. Word files work as well, but Google Docs are the most reliable.
+
+What it reads:
 
 | From the contract | Goes into |
 | --- | --- |
-| "*Name*, referred to as 'the Contractor'" | Facilitator |
+| CONTRACTOR, or "*Name*, referred to as 'the Contractor'" | Facilitator |
+| MOBILE, EMAIL | Mobile, Email |
 | PROJECT, ROLE (+ CREATIVE PRACTICE), VENUE | Project, Role, Venue |
 | RATE "£30 per hour" | Rate |
 | SESSIONS "6 sessions" or "six sessions" | Number of sessions |
 | TIMES "2 hours per session, plus 1 hour of admin per session" | Delivery and admin hours. Clock times like "11:30 to 14:00" go into Start and End. |
-| DATES, if they're listed (e.g. 30/09/2026 or 30 September 2026) | Other dates |
+| DATES: "Every Wednesday from 30/09/2026" | First session + Repeats (with SESSIONS as the count) |
+| DATES: a list (30/09/2026 or 30 September 2026) | Other dates |
 | TRAVEL "£15 per session", if the contract has it | Travel |
 
 - **Never overwritten:** it only fills empty cells, so anything already typed in the row is kept.
-- **Not in the contract:** the mobile number isn't in the contract, and dates that say "to confirm" stay blank, so add those yourself.
+- **Missing details:** anything the contract doesn't have (for example a mobile, or dates that say "to confirm") is listed in Contract notes for you to add.
 - **File types:** Word files and Google Docs work. A PDF (for example a signed copy) can't be read yet, and the note will say so: link the Word version instead.
 - **Permissions:** the first time it reads a file, Google asks permission for the sheet to open files in your Drive.
 

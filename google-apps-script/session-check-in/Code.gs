@@ -385,6 +385,9 @@ function contractTerms_(content) {
   if (name) out["Facilitator"] = name[1].trim();
   else if (terms["CONTRACTOR"] || terms["FACILITATOR"] || terms["NAME"]) out["Facilitator"] = terms["CONTRACTOR"] || terms["FACILITATOR"] || terms["NAME"];
 
+  var mobile = terms["MOBILE"] || terms["MOBILE NUMBER"] || terms["PHONE"] || terms["TELEPHONE"];
+  if (mobile && ukMobile_(mobile)) out["Mobile"] = mobile;
+  if (/@/.test(terms["EMAIL"] || "")) out["Email"] = terms["EMAIL"];
   if (terms["PROJECT"]) out["Project"] = terms["PROJECT"];
   if (terms["ROLE"]) out["Role"] = terms["ROLE"] + (terms["CREATIVE PRACTICE"] ? " (" + terms["CREATIVE PRACTICE"] + ")" : "");
   if (terms["VENUE"]) out["Venue"] = terms["VENUE"];
@@ -402,14 +405,22 @@ function contractTerms_(content) {
   if (delivery) out["Delivery hours per session"] = Number(delivery[1]);
   var admin = /(\d+(?:\.\d+)?)\s*hours?\s*of admin/i.exec(times);
   if (admin) out["Admin hours per session"] = Number(admin[1]);
-  var clock = /(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)\s*(?:-|–|to)\s*(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)/i.exec(times);
+  var clock = /(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)\s*(?:-|–|to)\s*(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)/i.exec(
+    [times, terms["SESSION TIMES"], terms["START TIME"] && terms["END TIME"] ? terms["START TIME"] + " to " + terms["END TIME"] : ""].join(" "));
   if (clock) {
     out["Start"] = clock[1].replace(".", ":").trim();
     out["End"] = clock[2].replace(".", ":").trim();
   }
 
-  var dates = contractDateList_(String(terms["DATES"] || ""));
-  if (dates.length) out["Other dates"] = dates.join(", ");
+  var dateText = String(terms["DATES"] || terms["SESSION DATES"] || "");
+  var dates = contractDateList_(dateText);
+  if (dates.length === 1 && /\b(every|weekly|fortnight)/i.test(dateText)) {
+    // "Every Wednesday from 30/09/2026" plus SESSIONS "8 sessions": a repeating pattern.
+    out["First session"] = dates[0];
+    out["Repeats"] = /fortnight/i.test(dateText) ? "Fortnightly" : "Weekly";
+  } else if (dates.length) {
+    out["Other dates"] = dates.join(", ");
+  }
   return out;
 }
 
