@@ -55,4 +55,4 @@ To make it real: a database instead of `localStorage`, sign-in per facilitator, 
 
 ## Session check-ins in Google Sheets (`google-apps-script/session-check-in`)
 
-The facilitator side, without Meta or a new app: a Google Apps Script that lives inside a Google Sheet. After each session the facilitator gets a WhatsApp message with two links. Link 1 ("Did it happen?") marks the session delivered and turns its Status cell green. Link 2 ("Did anything change?") opens a short form. The sheet writes each message; the coordinator sends it with one tap. Setup steps are in [its README](google-apps-script/session-check-in/README.md).
+The facilitator side, without Meta or a new app: a Google Apps Script that lives inside a Google Sheet. Fifteen minutes after each session the facilitator gets a text, sent automatically through Voodoo SMS, with two links. Link 1 ("Did it happen?") marks the session delivered and turns its Status cell green. Link 2 ("Did anything change?") opens a short form. Until a Voodoo key is added it runs in test mode and only logs the texts. Setup steps are in [its README](google-apps-script/session-check-in/README.md).

@@ -1,22 +1,23 @@
 /**
  * Session check-ins for facilitators.
  *
- * Lives inside a Google Sheet (Extensions > Apps Script). After each session the
- * facilitator gets a WhatsApp message with two links:
+ * Lives inside a Google Sheet (Extensions > Apps Script). Fifteen minutes after
+ * each session the facilitator gets a text with two links:
  *   1. "Did it happen?"       Opening it marks the session as delivered.
  *   2. "Did anything change?" Opens a short form: late start, extra time, moved,
  *                              cancelled, travel, other expense.
  * Answers land in the sheet, where the Status cell turns green.
  *
- * WhatsApp can't be sent automatically without a Meta business account, so the
- * sheet prepares each message and the coordinator sends it with one tap
- * ("Send on WhatsApp"). The links work the same by text or email.
+ * Texts go automatically through Voodoo SMS. Until a Voodoo API key is added the
+ * sheet runs in test mode: each text is written to the Message log, not sent.
+ * WhatsApp needs a Meta business account to send automatically, so on WhatsApp
+ * the coordinator gets a one-tap "Send on WhatsApp" link instead.
  *
  * Tabs: Sessions (the schedule, filled in by the coordinator), Check-ins (every
- * answer, never edited) and Settings.
+ * answer, never edited), Message log (every text sent) and Settings.
  */
 
-var TAB = { sessions: "Sessions", checkIns: "Check-ins", settings: "Settings" };
+var TAB = { sessions: "Sessions", checkIns: "Check-ins", log: "Message log", settings: "Settings" };
 
 var SESSION_COLS = [
   "Facilitator", "Mobile", "Email", "Project", "Session", "Date", "Start", "End",
@@ -34,17 +35,19 @@ var CHECK_IN_COLS = [
   "What for", "Notes", "Key",
 ];
 
+var LOG_COLS = ["Time", "Sent by", "To", "Facilitator", "Session", "Which", "Message", "Texts used", "Result"];
+
 var SETTINGS = [
   ["Web app URL", "", "Paste the link ending in /exec from Deploy > Manage deployments."],
-  ["Coordinator email", "", "Gets the 'ready to send' list and unanswered sessions. Blank sends to you."],
-  ["Email the coordinator when a check-in is due", "Yes", "Yes or No. The email has a 'Send on WhatsApp' link for each session."],
-  ["Also email facilitators", "No", "Yes or No. Sends the same two links by email, automatically, if the row has an email."],
+  ["Send check-ins by", "Text", "Text, WhatsApp or Email. Text is automatic (Voodoo SMS). WhatsApp means the coordinator taps to send."],
+  ["Text sender name", "YUAF", "Who the text says it's from. Up to 11 letters or numbers."],
+  ["Coordinator email", "", "Hears about failed texts and unanswered sessions. Blank sends to you."],
   ["Reply-to email", "", "Where replies to emails go. Blank uses your address."],
-  ["Sender name", "YUAF", "Shown as the email sender."],
+  ["Email sender name", "YUAF", "Shown as the email sender."],
   ["Check-in due (minutes after the session ends)", 15, ""],
   ["Reminder due (hour of the next day, 24h clock)", 9, ""],
   ["Tell the coordinator after (hours)", 24, "Counted from the end of the session."],
-  ["Ignore sessions older than (days)", 7, "Stops old rows being flagged when you first set up."],
+  ["Ignore sessions older than (days)", 7, "Stops old rows being sent when you first set up."],
 ];
 
 var STATUS = {
@@ -75,6 +78,8 @@ function onOpen() {
     .addItem("Check for due sessions now", "runReminders")
     .addItem("Make links for new rows", "fillLinks")
     .addSeparator()
+    .addItem("Add Voodoo SMS key", "addSmsKey")
+    .addItem("Send a test text", "sendTestText")
     .addItem("Add two test sessions", "addTestSessions")
     .addToUi();
 }
@@ -86,6 +91,7 @@ function setup() {
 
   var sessions = ensureTab_(ss, TAB.sessions, SESSION_COLS);
   ensureTab_(ss, TAB.checkIns, CHECK_IN_COLS);
+  ensureTab_(ss, TAB.log, LOG_COLS);
   var settings = ss.getSheetByName(TAB.settings) || ss.insertSheet(TAB.settings);
   if (settings.getLastRow() === 0) {
     settings.getRange(1, 1, 1, 3).setValues([["Setting", "Value", "Notes"]]).setFontWeight("bold");
@@ -116,7 +122,8 @@ function setup() {
   fillLinks();
   alert_(
     setting_("Web app URL")
-      ? "Set up. Add sessions to the Sessions tab. The sheet checks for finished sessions every 5 minutes."
+      ? "Set up. Add sessions to the Sessions tab. The sheet checks for finished sessions every 5 minutes." +
+        (smsKey_() ? "" : " Texts are in test mode until you add a Voodoo SMS key: they go to the Message log, not to phones.")
       : "Nearly there. Deploy the web app, paste its /exec link into Settings, then run Set up again.",
   );
 }
@@ -251,7 +258,7 @@ function runReminders() {
       var stage = 0;
 
       if (!r[C["Check-in due"]] && now >= due.checkIn) {
-        // Past both times already (e.g. first run after setup): one nudge, not two.
+        // Past both times already (e.g. first run after setup): one text, not two.
         stage = now >= due.reminder ? 2 : 1;
         stamp_(sheet, row, "Check-in due", now);
         if (stage === 2) stamp_(sheet, row, "Reminder due", now);
@@ -260,19 +267,150 @@ function runReminders() {
         stamp_(sheet, row, "Reminder due", now);
       }
       if (stage) {
-        ready.push({ r: r, t: t, stage: stage });
-        if (cfg.emailFacilitators && r[C["Email"]]) emailFacilitator_(r, t, stage, cfg, tz);
+        var result = deliver_(r, t, stage, cfg, tz);
+        if (result.coordinator) ready.push({ r: r, t: t, stage: stage, why: result.coordinator });
       }
       if (!r[C["Coordinator told"]] && now >= due.escalate) overdue.push({ row: row, r: r, t: t });
     }
 
-    if (ready.length && cfg.nudgeCoordinator) emailReadyList_(ready, cfg, tz);
+    if (ready.length) emailReadyList_(ready, cfg, tz);
     if (overdue.length && emailOverdue_(overdue, cfg, tz)) {
       overdue.forEach(function (o) { stamp_(sheet, o.row, "Coordinator told", now); });
     }
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Sends one check-in by the chosen route. Returns { coordinator: reason } when the
+ * coordinator needs to send it instead (WhatsApp, no mobile, or a failed text).
+ */
+function deliver_(r, t, stage, cfg, tz) {
+  var l = linksFor_(r);
+  if (cfg.channel === "whatsapp") return { coordinator: "send" };
+
+  if (cfg.channel === "email") {
+    if (!r[C["Email"]]) return { coordinator: "No email in the sheet" };
+    var sent = emailFacilitator_(r, t, stage, cfg, tz);
+    log_("Email", r[C["Email"]], r, stage, checkInMessage_(r, t, tz, l.yes, l.change, stage === 2), "", sent ? "Sent" : "Failed");
+    return sent ? {} : { coordinator: "The email failed" };
+  }
+
+  // Text
+  var to = ukMobile_(r[C["Mobile"]]);
+  var text = smsMessage_(r, t, tz, l.yes, l.change, stage === 2);
+  if (!to) {
+    log_("Text", "", r, stage, text, smsSegments_(text), "Not sent: no mobile in the sheet");
+    return { coordinator: "No mobile in the sheet" };
+  }
+  var key = smsKey_();
+  if (!key) {
+    log_("Text", to, r, stage, text, smsSegments_(text), "TEST MODE: not sent (no Voodoo SMS key yet)");
+    return {};
+  }
+  var outcome = sendSms_(key, to, text, cfg.textSender);
+  log_("Text", to, r, stage, text, smsSegments_(text), outcome.ok ? "Sent" : "Failed: " + outcome.error);
+  return outcome.ok ? {} : { coordinator: "The text failed (" + outcome.error + ")" };
+}
+
+/**
+ * Voodoo SMS REST API: POST /sendsms with a Bearer key and { to, from, msg }.
+ * See https://www.voodoosms.com/api/rest/sending-sms
+ */
+function sendSms_(key, to, text, from) {
+  try {
+    var res = UrlFetchApp.fetch("https://api.voodoosms.com/sendsms", {
+      method: "post",
+      contentType: "application/json",
+      headers: { Authorization: "Bearer " + key },
+      payload: JSON.stringify({ to: to, from: from || "YUAF", msg: text }),
+      muteHttpExceptions: true,
+    });
+    var code = res.getResponseCode();
+    if (code >= 200 && code < 300) return { ok: true };
+    return { ok: false, error: "Voodoo said " + code + ": " + String(res.getContentText()).slice(0, 200) };
+  } catch (err) {
+    return { ok: false, error: String(err).slice(0, 200) };
+  }
+}
+
+/** Short and plain (no emoji or curly quotes), so each text uses as few credits as possible. */
+function smsMessage_(r, t, tz, yesLink, changeLink, reminder) {
+  return [
+    (reminder ? "Reminder: " : "") + "Hi " + firstName_(r[C["Facilitator"]]) + ". Session " + r[C["Session"]] + ", " +
+      r[C["Project"]] + ", " + describeWhen_(t, tz) + ".",
+    "Did it happen? Tap to confirm:",
+    yesLink,
+    "Did anything change? Only tap if so:",
+    changeLink,
+  ].join("\n");
+}
+
+/** How many texts a message is billed as: 160 characters, or 153 each when split. */
+function smsSegments_(text) {
+  var gsm = /^[A-Za-z0-9 \r\n@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#¤%&'()*+,\-.\/:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\\[~\]|€]*$/.test(text);
+  var single = gsm ? 160 : 70;
+  var part = gsm ? 153 : 67;
+  return text.length <= single ? 1 : Math.ceil(text.length / part);
+}
+
+function log_(by, to, r, stage, message, segments, result) {
+  var sheet = book_().getSheetByName(TAB.log);
+  if (!sheet) return;
+  sheet.appendRow([
+    new Date(), by, to ? "'" + to : "", r[C["Facilitator"]], r[C["Session"]],
+    stage === 2 ? "Reminder" : stage === 0 ? "Test" : "Check-in", message, segments, result,
+  ]);
+}
+
+function smsKey_() {
+  return PropertiesService.getScriptProperties().getProperty("VOODOO_SMS_KEY") || "";
+}
+
+/** Menu: stores the Voodoo key out of sight, in the script's properties, not in a cell. */
+function addSmsKey() {
+  var ui = SpreadsheetApp.getUi();
+  var answer = ui.prompt(
+    "Voodoo SMS key",
+    "Paste the API key from Voodoo SMS (Send SMS > API SMS > RESTful API). Leave blank to go back to test mode.",
+    ui.ButtonSet.OK_CANCEL,
+  );
+  if (answer.getSelectedButton() !== ui.Button.OK) return;
+  saveSmsKey_(answer.getResponseText());
+  ui.alert(smsKey_() ? "Saved. Texts will now be sent for real." : "Key removed. Texts are in test mode again.");
+}
+
+function saveSmsKey_(key) {
+  var props = PropertiesService.getScriptProperties();
+  key = String(key || "").trim();
+  if (key) props.setProperty("VOODOO_SMS_KEY", key);
+  else props.deleteProperty("VOODOO_SMS_KEY");
+}
+
+/** Menu: sends one sample text to a number you type, to prove the key works. */
+function sendTestText() {
+  var ui = SpreadsheetApp.getUi();
+  var answer = ui.prompt("Send a test text", "Which mobile should get it? For example 07700 900123.", ui.ButtonSet.OK_CANCEL);
+  if (answer.getSelectedButton() !== ui.Button.OK) return;
+  ui.alert(testText_(answer.getResponseText()));
+}
+
+function testText_(mobile) {
+  var to = ukMobile_(mobile);
+  if (!to) return "That doesn't look like a mobile number.";
+  var text = "Test from the YUAF check-in sheet. If you got this, texts are working.";
+  var key = smsKey_();
+  var fake = { length: 0 };
+  fake[C["Facilitator"]] = "Test";
+  fake[C["Session"]] = "-";
+  if (!key) {
+    log_("Text", to, fake, 0, text, smsSegments_(text), "TEST MODE: not sent (no Voodoo SMS key yet)");
+    return "No Voodoo SMS key yet, so nothing was sent. Add one from Check-ins > Add Voodoo SMS key.";
+  }
+  var outcome = sendSms_(key, to, text, config_().textSender);
+  log_("Text", to, fake, 0, text, smsSegments_(text), outcome.ok ? "Sent" : "Failed: " + outcome.error);
+  return outcome.ok ? "Sent. Check the phone." : "It didn't send. " + outcome.error;
 }
 
 function dueTimes_(end, cfg, tz) {
@@ -339,12 +477,19 @@ function emailReadyList_(ready, cfg, tz) {
     var link = whatsAppUrl_(x.r[C["Mobile"]], checkInMessage_(x.r, x.t, tz, l.yes, l.change, x.stage === 2));
     return "<li style=\"margin-bottom:16px\"><b>" + esc_(x.r[C["Facilitator"]]) + "</b>, session " + esc_(x.r[C["Session"]]) +
       " (" + esc_(describeWhen_(x.t, tz)) + ")" + (x.stage === 2 ? ", still no answer" : "") +
-      (x.r[C["Mobile"]] ? "" : ". No mobile in the sheet, so WhatsApp will ask you to pick the contact") +
+      (x.why && x.why !== "send" ? ". " + esc_(x.why) : "") +
       "<br><a href=\"" + esc_(link) + "\">" + (x.stage === 2 ? "Send reminder on WhatsApp" : "Send on WhatsApp") + "</a></li>";
   }).join("");
+  var automatic = ready.every(function (x) { return x.why && x.why !== "send"; });
   var html =
-    "<p>Tap each link to open WhatsApp with the check-in message ready, then press send.</p><ul>" + items + "</ul>";
-  return send_(cfg.coordinator, ready.length + " check-in" + (ready.length === 1 ? "" : "s") + " ready to send on WhatsApp", html, cfg);
+    (automatic
+      ? "<p>These check-ins couldn't go out automatically. Tap each link to send it on WhatsApp instead.</p>"
+      : "<p>Tap each link to open WhatsApp with the check-in message ready, then press send.</p>") +
+    "<ul>" + items + "</ul>";
+  var subject = automatic
+    ? ready.length + " check-in" + (ready.length === 1 ? "" : "s") + " couldn't be sent automatically"
+    : ready.length + " check-in" + (ready.length === 1 ? "" : "s") + " ready to send on WhatsApp";
+  return send_(cfg.coordinator, subject, html, cfg);
 }
 
 function emailOverdue_(overdue, cfg, tz) {
@@ -362,7 +507,7 @@ function emailOverdue_(overdue, cfg, tz) {
 
 function send_(to, subject, html, cfg) {
   try {
-    var options = { to: to || owner_(), subject: subject, htmlBody: html, name: cfg.senderName };
+    var options = { to: to || owner_(), subject: subject, htmlBody: html, name: cfg.emailSenderName };
     if (cfg.replyTo) options.replyTo = cfg.replyTo;
     MailApp.sendEmail(options);
     return true;
@@ -552,17 +697,14 @@ function config_() {
     var n = Number(setting_(label));
     return n > 0 ? n : fallback;
   };
-  var yes = function (label, fallback) {
-    var v = String(setting_(label)).trim().toLowerCase();
-    return v ? v === "yes" || v === "y" || v === "true" : fallback;
-  };
+  var channel = String(setting_("Send check-ins by") || "Text").trim().toLowerCase();
   return {
     url: String(setting_("Web app URL") || "").trim(),
+    channel: channel.indexOf("whats") === 0 ? "whatsapp" : channel.indexOf("email") === 0 ? "email" : "text",
+    textSender: String(setting_("Text sender name") || "YUAF").replace(/[^A-Za-z0-9 ]/g, "").slice(0, 11) || "YUAF",
     coordinator: String(setting_("Coordinator email") || "").trim(),
-    nudgeCoordinator: yes("Email the coordinator when a check-in is due", true),
-    emailFacilitators: yes("Also email facilitators", false),
     replyTo: String(setting_("Reply-to email") || "").trim(),
-    senderName: String(setting_("Sender name") || "YUAF").trim(),
+    emailSenderName: String(setting_("Email sender name") || "YUAF").trim(),
     checkInMinutes: num("Check-in due (minutes after the session ends)", 15),
     reminderHour: Math.min(23, num("Reminder due (hour of the next day, 24h clock)", 9)),
     escalateHours: num("Tell the coordinator after (hours)", 24),
