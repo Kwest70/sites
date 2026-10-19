@@ -278,7 +278,7 @@ function readContracts_() {
     if (!link.trim()) return;
     var note;
     try {
-      var found = contractTerms_(readContractFile_(link));
+      var found = contractTerms_(readContractFile_(link), tz);
       var filled = row.slice();
       Object.keys(found).forEach(function (col) {
         if (filled[K[col]] === "" || filled[K[col]] === null) filled[K[col]] = found[col];
@@ -288,7 +288,11 @@ function readContracts_() {
       if (!filled[K["Facilitator"]]) missing.push("facilitator");
       if (!filled[K["Mobile"]]) missing.push("mobile");
       if (!filled[K["First session"]] && !filled[K["Other dates"]]) missing.push("session dates");
-      if (!filled[K["Start"]] || !filled[K["End"]]) missing.push("start and end times");
+      var ownTimes = !filled[K["First session"]] && String(filled[K["Other dates"]] || "").split(/[,;]/).every(function (e) {
+        var m = SLOT.exec(e.trim());
+        return m && m[2];
+      });
+      if ((!filled[K["Start"]] || !filled[K["End"]]) && !ownTimes) missing.push("start and end times");
       note = "Read " + Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm") + ". " +
         (missing.length
           ? "Still needed: " + missing.join(", ") + ". Then Make sessions."
@@ -370,12 +374,14 @@ var NUMBER_WORDS = {
  * template: rows of LABEL | value | LABEL | value, and "Name, referred to as
  * 'the Contractor'" in the Parties section. Anything not found is left out.
  */
-function contractTerms_(content) {
+function contractTerms_(content, tz) {
+  tz = tz || "Europe/London";
   var terms = {};
   content.tables.forEach(function (rows) {
     rows.forEach(function (cells) {
       for (var i = 0; i + 1 < cells.length; i += 2) {
-        var label = String(cells[i]).trim().toUpperCase();
+        // "**Mobile:**" or "Rate (£)" still reads as MOBILE or RATE.
+        var label = String(cells[i]).toUpperCase().replace(/\(.*?\)/g, " ").replace(/[^A-Z ]+/g, " ").replace(/\s+/g, " ").trim();
         if (label && !terms[label]) terms[label] = String(cells[i + 1]).trim();
       }
     });
@@ -405,21 +411,43 @@ function contractTerms_(content) {
   if (delivery) out["Delivery hours per session"] = Number(delivery[1]);
   var admin = /(\d+(?:\.\d+)?)\s*hours?\s*of admin/i.exec(times);
   if (admin) out["Admin hours per session"] = Number(admin[1]);
-  var clock = /(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)\s*(?:-|–|to)\s*(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)/i.exec(
-    [times, terms["SESSION TIMES"], terms["START TIME"] && terms["END TIME"] ? terms["START TIME"] + " to " + terms["END TIME"] : ""].join(" "));
-  if (clock) {
-    out["Start"] = clock[1].replace(".", ":").trim();
-    out["End"] = clock[2].replace(".", ":").trim();
+  var timeText = [times, terms["SESSION TIMES"] || "", terms["START TIME"] && terms["END TIME"] ? terms["START TIME"] + " to " + terms["END TIME"] : ""].join(" ");
+  var ranges = [];
+  var rangeRe = /(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)\s*(?:-|–|to)\s*(\d{1,2}[:.]\d{2}\s*(?:[ap]m)?)/gi;
+  var r;
+  while ((r = rangeRe.exec(timeText))) ranges.push([r[1].replace(".", ":").trim(), r[2].replace(".", ":").trim()]);
+
+  // "Every 5 minutes from 19:00, 3 minutes each" (handy for testing, or drop-in slots).
+  var every = /every\s+(\d+)\s*min(?:ute)?s?\s+from\s+(\d{1,2})[:.](\d{2})/i.exec(timeText);
+  if (every) {
+    var gap = Number(every[1]);
+    var each = Number((/(\d+)\s*min(?:ute)?s?\s+each/i.exec(timeText) || [0, gap])[1]);
+    var startMin = Number(every[2]) * 60 + Number(every[3]);
+    var hm = function (m) { return pad_(Math.floor(m / 60) % 24) + ":" + pad_(m % 60); };
+    ranges = [];
+    for (var k = 0; k < Math.max(1, out["Number of sessions"] || 1); k++) ranges.push([hm(startMin + k * gap), hm(startMin + k * gap + each)]);
   }
 
   var dateText = String(terms["DATES"] || terms["SESSION DATES"] || "");
-  var dates = contractDateList_(dateText);
-  if (dates.length === 1 && /\b(every|weekly|fortnight)/i.test(dateText)) {
+  var today = Utilities.formatDate(new Date(), tz, "dd/MM/yyyy");
+  var tomorrow = Utilities.formatDate(new Date(new Date().getTime() + DAY), tz, "dd/MM/yyyy");
+  var dates = contractDateList_(dateText.replace(/\btoday\b/gi, today).replace(/\btomorrow\b/gi, tomorrow));
+
+  if (dates.length === 1 && /\b(every|weekly|fortnight)/i.test(dateText) && ranges.length <= 1) {
     // "Every Wednesday from 30/09/2026" plus SESSIONS "8 sessions": a repeating pattern.
     out["First session"] = dates[0];
     out["Repeats"] = /fortnight|every other|alternate/i.test(dateText) ? "Fortnightly" : "Weekly";
+  } else if (dates.length && ranges.length > 1) {
+    // Several time slots: each date gets each slot.
+    var slots = [];
+    dates.forEach(function (d) { ranges.forEach(function (x) { slots.push(d + " " + x[0] + "-" + x[1]); }); });
+    out["Other dates"] = slots.join(", ");
   } else if (dates.length) {
     out["Other dates"] = dates.join(", ");
+  }
+  if (ranges.length === 1) {
+    out["Start"] = ranges[0][0];
+    out["End"] = ranges[0][1];
   }
   return out;
 }
@@ -464,26 +492,25 @@ function makeSessions_() {
   values.forEach(function (c, i) {
     if (!c[K["Facilitator"]] || c[K["Sessions made"]]) return;
     var who = c[K["Facilitator"]] + " (" + (c[K["Project"]] || "no project") + ")";
-    var days = contractDates_(c, shown[i], tz);
-    var start = shown[i][K["Start"]];
-    var end = shown[i][K["End"]];
-    if (!days.length) return skipped.push(who + ": add the session dates");
-    if (!parseLocal_(days[0], start, tz) || !parseLocal_(days[0], end, tz)) return skipped.push(who + ": add a start and end time");
-    days.forEach(function (day, n) {
+    var slots = contractSlots_(c, shown[i], tz);
+    if (!slots.length) return skipped.push(who + ": add the session dates");
+    var untimed = slots.some(function (x) { return !parseLocal_(x.day, x.start, tz) || !parseLocal_(x.day, x.end, tz); });
+    if (untimed) return skipped.push(who + ": add a start and end time");
+    slots.forEach(function (slot, n) {
       var row = SESSION_COLS.map(function () { return ""; }).slice(0, C["End"] + 1);
       row[C["Facilitator"]] = c[K["Facilitator"]];
       row[C["Mobile"]] = c[K["Mobile"]] ? String(c[K["Mobile"]]) : "";
       row[C["Email"]] = c[K["Email"]];
       row[C["Project"]] = c[K["Project"]];
       row[C["Session"]] = n + 1;
-      row[C["Date"]] = parseLocal_(day, "12:00", tz);
-      row[C["Start"]] = start;
-      row[C["End"]] = end;
+      row[C["Date"]] = parseLocal_(slot.day, "12:00", tz);
+      row[C["Start"]] = slot.start;
+      row[C["End"]] = slot.end;
       sessions.appendRow(row);
     });
     contracts.getRange(i + 2, K["Sessions made"] + 1).setValue(
-      days.length + " session" + (days.length === 1 ? "" : "s") + ", " + Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm"));
-    made.push(who + ": " + days.length);
+      slots.length + " session" + (slots.length === 1 ? "" : "s") + ", " + Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm"));
+    made.push(who + ": " + slots.length);
   });
 
   fillLinks();
@@ -492,25 +519,39 @@ function makeSessions_() {
     (skipped.length ? (made.length ? " " : "") + "Not done yet: " + skipped.join("; ") + "." : "");
 }
 
-/** All session days for a contract, as sorted yyyy-MM-dd strings with no repeats. */
-function contractDates_(c, shown, tz) {
-  var days = {};
+var SLOT = /(\d{1,2}\/\d{1,2}\/\d{4})(?:\s+(\d{1,2}[:.]\d{2})\s*(?:-|–|to)\s*(\d{1,2}[:.]\d{2}))?/;
+
+/**
+ * Every session for a contract as { day: yyyy-MM-dd, start, end }, sorted, no repeats.
+ * The pattern (First session + Repeats + Number) uses the contract's Start and End.
+ * Other dates can carry their own times: "19/10/2026 19:00-19:03".
+ */
+function contractSlots_(c, shown, tz) {
+  var start = shown[K["Start"]];
+  var end = shown[K["End"]];
+  var slots = {};
+  var add = function (day, from, to) {
+    var s0 = String(from || start || "").replace(".", ":");
+    var key = day + " " + pad_(Number(s0.split(":")[0] || 0)) + ":" + (s0.split(":")[1] || "00");
+    if (!slots[key]) slots[key] = { day: day, start: s0, end: String(to || end || "").replace(".", ":") };
+  };
   var first = dayString_(c[K["First session"]], shown[K["First session"]], tz);
   var count = Math.min(52, Math.round(Number(c[K["Number of sessions"]]) || 0));
   var repeats = String(c[K["Repeats"]] || "").toLowerCase();
   var step = repeats.indexOf("fortnight") === 0 ? 14 : repeats.indexOf("week") === 0 ? 7 : 0;
   if (first) {
-    days[first] = true;
+    add(first);
     if (step && count > 1) {
       var noon = parseLocal_(first, "12:00", tz).getTime();
-      for (var n = 1; n < count; n++) days[Utilities.formatDate(new Date(noon + n * step * DAY), tz, "yyyy-MM-dd")] = true;
+      for (var n = 1; n < count; n++) add(Utilities.formatDate(new Date(noon + n * step * DAY), tz, "yyyy-MM-dd"));
     }
   }
-  String(shown[K["Other dates"]] || "").split(/[,;\n]/).forEach(function (d) {
-    var day = dayString_(null, d.trim(), tz);
-    if (day) days[day] = true;
+  String(shown[K["Other dates"]] || "").split(/[,;\n]/).forEach(function (entry) {
+    var m = SLOT.exec(entry.trim());
+    var day = m && dayString_(null, m[1], tz);
+    if (day) add(day, m[2], m[3]);
   });
-  return Object.keys(days).sort();
+  return Object.keys(slots).sort().map(function (k) { return slots[k]; });
 }
 
 // ─── Due check-ins ──────────────────────────────────────────────────────────

@@ -47,6 +47,15 @@ Everything runs in Google. Texts come from a spare **Android phone** running the
 
 "Every Wednesday from…" with "8 sessions" becomes a weekly pattern; "every other Wednesday" or "fortnightly" works too. Word files work as well, but Google Docs are the most reliable.
 
+More than one session on the same day works too:
+
+| TIMES | DATES | Sessions made |
+| --- | --- | --- |
+| 10:00 to 11:00 and 13:00 to 14:00 | 30/09/2026, 07/10/2026 | Two a day on each date, four in all |
+| Every 5 minutes from 19:30, 3 minutes each (with SESSIONS "4 sessions") | Today | 19:30, 19:35, 19:40 and 19:45, each 3 minutes long |
+
+DATES can say *Today* or *Tomorrow*. They're turned into real dates when the sheet reads the contract, so the date doesn't move later. In the **Other dates** column, each date can carry its own times, for example `19/10/2026 19:00-19:03, 19/10/2026 19:05-19:08`.
+
 What it reads:
 
 | From the contract | Goes into |
@@ -56,9 +65,9 @@ What it reads:
 | PROJECT, ROLE (+ CREATIVE PRACTICE), VENUE | Project, Role, Venue |
 | RATE "£30 per hour" | Rate |
 | SESSIONS "6 sessions" or "six sessions" | Number of sessions |
-| TIMES "2 hours per session, plus 1 hour of admin per session" | Delivery and admin hours. Clock times like "11:30 to 14:00" go into Start and End. |
+| TIMES "2 hours per session, plus 1 hour of admin per session" | Delivery and admin hours. One clock time like "11:30 to 14:00" goes into Start and End. Several go into Other dates, with each date. |
 | DATES: "Every Wednesday from 30/09/2026" | First session + Repeats (with SESSIONS as the count) |
-| DATES: a list (30/09/2026 or 30 September 2026) | Other dates |
+| DATES: a list (30/09/2026 or 30 September 2026), Today or Tomorrow | Other dates |
 | TRAVEL "£15 per session", if the contract has it | Travel |
 
 - **Never overwritten:** it only fills empty cells, so anything already typed in the row is kept.
@@ -97,11 +106,21 @@ This makes its own new sheet. It never touches any other spreadsheet, so use it 
 5. Back in the sheet, reload the page. A **Check-ins** menu appears. Click **Check-ins > Set up this sheet** and allow the permissions. Google may warn that the app isn't verified, because you made it yourself: click **Advanced**, then **Go to** the project.
 6. Paste the `/exec` link into **Settings > Web app URL** and add the coordinator's email. Run **Check-ins > Set up this sheet** once more.
 
-### Try it in test mode
+### Test it today, with sessions 5 minutes apart
 
-1. Paste a contract link on the **Contracts** tab (or type a row in), set today as the first session with times that have just ended, add your own mobile, then **Make sessions from new contracts**.
-2. **Check-ins > Check for due sessions now.** The text appears in the **Message log**, marked *TEST MODE*.
-3. Copy link 1 from the Sessions tab into your phone's browser and watch the Status cell go green. Try link 2 for the form.
+A test contract makes four 3-minute sessions, 5 minutes apart, so you can watch the whole loop in about half an hour instead of waiting a week. There's one in the testing folder on Drive, or copy the Key Terms table above with TIMES *Every 5 minutes from 19:30, 3 minutes each*, SESSIONS *4 sessions* and DATES *Today*.
+
+1. In the test contract, put your own mobile in **MOBILE** and change **19:30** to about 10 minutes from now.
+2. In **Settings**:
+   - clear **Phone hours**, so texts can go at any time (the usual hours may not cover today)
+   - set **Check-in due** to **1**
+3. Paste the contract's link into **Contracts**, then **Check-ins > Read new contracts**. The note should say *Ready*.
+4. **Check-ins > Make sessions from new contracts.** Four rows appear on **Sessions**.
+5. Wait. The sheet checks every 5 minutes, so each text comes within about 5 minutes of a session ending. **Check-ins > Check for due sessions now** sends anything due straight away.
+
+Before the phone is connected, the texts go to the **Message log** marked *TEST MODE*. Copy link 1 from the Sessions tab into your phone's browser to see the Status cell go green, and try link 2 for the form. Once the phone is connected, the same texts reach your mobile.
+
+Answer every test session, or a reminder text goes at 9am tomorrow. When you've finished, put **Phone hours** and **Check-in due** back to how they were.
 
 ### The phone
 
