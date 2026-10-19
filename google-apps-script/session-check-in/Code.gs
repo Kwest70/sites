@@ -417,7 +417,7 @@ function contractTerms_(content) {
   if (dates.length === 1 && /\b(every|weekly|fortnight)/i.test(dateText)) {
     // "Every Wednesday from 30/09/2026" plus SESSIONS "8 sessions": a repeating pattern.
     out["First session"] = dates[0];
-    out["Repeats"] = /fortnight/i.test(dateText) ? "Fortnightly" : "Weekly";
+    out["Repeats"] = /fortnight|every other|alternate/i.test(dateText) ? "Fortnightly" : "Weekly";
   } else if (dates.length) {
     out["Other dates"] = dates.join(", ");
   }
