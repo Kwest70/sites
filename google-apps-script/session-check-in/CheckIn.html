@@ -268,7 +268,7 @@
         }
 
         var notes = el("textarea", { name: "notes", maxlength: "1000" });
-        var submit = el("button", { type: "submit", class: "primary", text: "Send" });
+        var submit = el("button", { type: "button", class: "primary", text: "Send" });
         form.appendChild(options);
         form.appendChild(field("Anything else? (optional)", notes));
         form.appendChild(el("p", { class: "error", id: "error", role: "alert" }));
@@ -280,8 +280,9 @@
           if (box) box.textContent = "";
         });
 
-        form.addEventListener("submit", function (e) {
-          e.preventDefault();
+        // Send runs on a tap, not a form submission, so it still works where a frame blocks forms.
+        form.addEventListener("submit", function (e) { e.preventDefault(); });
+        submit.addEventListener("click", function () {
           var v = function (name) { var f = form.elements[name]; return f ? f.value : ""; };
           var on = function (id) { return boxes[id].box.checked; };
           var answer = { asPlanned: false, notes: v("notes") };
