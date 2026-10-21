@@ -2,11 +2,10 @@
  * Session check-ins for facilitators.
  *
  * Lives inside a Google Sheet (Extensions > Apps Script). Fifteen minutes after
- * each session the facilitator gets a text with two links:
- *   1. "Did it happen?"       Opening it marks the session as delivered.
- *   2. "Did anything change?" Opens a short form: late start, extra time, moved,
- *                              cancelled, travel, other expense.
- * Answers land in the sheet, where the Status cell turns green.
+ * each session the facilitator gets a text with one link. Opening it marks the
+ * session as delivered, and the Status cell turns green. Underneath, the same
+ * page has tick boxes (late start, extra time, moved, cancelled, travel, other
+ * expense), a text box and Submit for anything that changed.
  *
  * Texts go out automatically from an Android phone running the free SMS Gateway
  * for Android app (or through Voodoo SMS, if you prefer a paid service). Texts
@@ -45,9 +44,7 @@ SESSION_COLS.forEach(function (h, i) { C[h] = i; });
 
 var CHECK_IN_COLS = [
   "Submitted", "Facilitator", "Project", "Session", "Session date", "Answer",
-  "Started late (min)", "Extra time (min)", "Moved to", "New start", "New end",
-  "Cancelled by", "Told on", "Notice (hours)", "Travel £", "Other expense £",
-  "What for", "Notes", "Key",
+  "What changed", "Details", "Key",
 ];
 
 var LOG_COLS = ["Time", "Sent by", "To", "Facilitator", "Session", "Which", "Message", "Texts used", "Result"];
@@ -74,17 +71,19 @@ var STATUS = {
   cancelled: "Cancelled",
 };
 
-var CANCELLED_BY = {
-  "young-person": "the young person",
-  venue: "the venue or partner",
-  yuaf: "YUAF",
-  me: "the facilitator",
-};
+// The tick boxes on the page, in order.
+var CHANGES = [
+  ["late", "Started late"],
+  ["extra", "Ran over or extra time"],
+  ["moved", "Moved to another day or time"],
+  ["cancelled", "Cancelled"],
+  ["travel", "Travel cost"],
+  ["expense", "Other expense"],
+];
 
 var MINUTE = 60 * 1000;
 var HOUR = 60 * MINUTE;
 var DAY = 24 * HOUR;
-var FULL_PAY_NOTICE_HOURS = 48;
 
 // ─── Menu and setup ─────────────────────────────────────────────────────────
 
@@ -100,7 +99,7 @@ function onOpen() {
     .addItem("Connect the phone", "connectPhone")
     .addItem("Add Voodoo SMS key", "addSmsKey")
     .addItem("Send a test text", "sendTestText")
-    .addItem("Add two test sessions", "addTestSessions")
+    .addItem("Start a test run", "startTestRun")
     .addToUi();
 }
 
@@ -187,7 +186,8 @@ function colourStatus_(sheet) {
 }
 
 /**
- * Gives every session row a private key, its two links and a ready-made
+ * Gives every session row a private key, its links (the one in the text, and a
+ * change link the coordinator can use) and a ready-made
  * WhatsApp message. Rewritten each run, so edits to times or names flow through.
  */
 function fillLinks() {
@@ -215,7 +215,7 @@ function fillLinks() {
     if (yes && t) {
       text = SpreadsheetApp.newRichTextValue()
         .setText("Send on WhatsApp")
-        .setLinkUrl(whatsAppUrl_(r[C["Mobile"]], checkInMessage_(r, t, tz, yes, change, false)));
+        .setLinkUrl(whatsAppUrl_(r[C["Mobile"]], checkInMessage_(r, t, tz, yes, false)));
     }
     whatsApp.push([text.build()]);
     return [yes, change, key];
@@ -225,29 +225,54 @@ function fillLinks() {
   sheet.getRange(2, C["Yes link"] + 1, links.length, 3).setValues(links);
 }
 
-/** Two sessions with no mobile or email: one just finished, one later today. */
-function addTestSessions() {
-  var sheet = book_().getSheetByName(TAB.sessions);
-  var tz = book_().getSpreadsheetTimeZone();
-  var now = new Date();
-  var at = function (offsetMinutes) {
-    return Utilities.formatDate(new Date(now.getTime() + offsetMinutes * MINUTE), tz, "HH:mm");
-  };
-  var today = Utilities.formatDate(now, tz, "dd/MM/yyyy");
-  var row = function (n, from, to) {
-    var r = SESSION_COLS.map(function () { return ""; });
-    r[C["Facilitator"]] = "Test Facilitator";
-    r[C["Project"]] = "Test project";
-    r[C["Session"]] = n;
-    r[C["Date"]] = today;
-    r[C["Start"]] = from;
-    r[C["End"]] = to;
-    return r.slice(0, C["End"] + 1);
-  };
-  sheet.appendRow(row(1, at(-140), at(-20)));
-  sheet.appendRow(row(2, at(60), at(180)));
+/** Menu: four 3-minute sessions, 5 minutes apart, starting in about 2 minutes. */
+function startTestRun() {
+  var ui = SpreadsheetApp.getUi();
+  var answer = ui.prompt("Start a test run", "Which mobile should the test texts go to? For example 07700 900123.", ui.ButtonSet.OK_CANCEL);
+  if (answer.getSelectedButton() !== ui.Button.OK) return;
+  ui.alert(testRun_(answer.getResponseText()));
+}
+
+function testRun_(mobile) {
+  if (!ukMobile_(mobile)) return "That doesn't look like a mobile number.";
+  var ss = book_();
+  var tz = ss.getSpreadsheetTimeZone();
+  // The first contract's name and project, so the texts read like the real thing.
+  var who = { facilitator: "Test Facilitator", project: "Test run" };
+  var contracts = ss.getSheetByName(TAB.contracts);
+  if (contracts && contracts.getLastRow() > 1) {
+    var first = contracts.getRange(2, 1, contracts.getLastRow() - 1, CONTRACT_COLS.length).getValues()
+      .filter(function (c) { return c[K["Facilitator"]]; })[0];
+    if (first) who = { facilitator: first[K["Facilitator"]], project: (first[K["Project"]] || "Test run") + " (test)" };
+  }
+  var start = Math.ceil((new Date().getTime() + 2 * MINUTE) / MINUTE) * MINUTE;
+  var hm = function (ms) { return Utilities.formatDate(new Date(ms), tz, "HH:mm"); };
+  var sheet = ss.getSheetByName(TAB.sessions);
+  for (var n = 0; n < 4; n++) {
+    var from = start + n * 5 * MINUTE;
+    var row = SESSION_COLS.map(function () { return ""; }).slice(0, C["End"] + 1);
+    row[C["Facilitator"]] = who.facilitator;
+    row[C["Mobile"]] = String(mobile).trim();
+    row[C["Project"]] = who.project;
+    row[C["Session"]] = n + 1;
+    row[C["Date"]] = parseLocal_(Utilities.formatDate(new Date(from), tz, "yyyy-MM-dd"), "12:00", tz);
+    row[C["Start"]] = hm(from);
+    row[C["End"]] = hm(from + 3 * MINUTE);
+    sheet.appendRow(row);
+  }
   fillLinks();
-  alert_("Added two test sessions. Put your own mobile in the Mobile column, then tap 'Send on WhatsApp' to send yourself the message.");
+
+  var cfg = config_();
+  var check = [];
+  if (!cfg.url) check.push("There's no Web app URL in Settings, so the texts have no link yet.");
+  if (cfg.checkInMinutes > 2) check.push("Check-in due is " + cfg.checkInMinutes + " minutes. Set it to 1 in Settings for testing.");
+  if (cfg.channel === "text" && cfg.textRoute === "phone" && !inPhoneHours_(new Date(start + 20 * MINUTE), cfg.phoneHours, tz)) {
+    check.push("Phone hours don't cover now, so the texts would wait. Clear Phone hours in Settings for testing.");
+  }
+  if (cfg.channel === "text" && !textRouteReady_(cfg)) check.push("The phone isn't connected, so the texts go to the Message log instead of your mobile.");
+  return "Added 4 test sessions from " + hm(start) + ", each 3 minutes long and 5 minutes apart. " +
+    "Each text goes within about 5 minutes of a session ending. Check-ins > Check for due sessions now sends it straight away." +
+    (check.length ? "\n\nBefore it works:\n- " + check.join("\n- ") : "");
 }
 
 // ─── Contracts ──────────────────────────────────────────────────────────────
@@ -629,13 +654,13 @@ function deliver_(r, t, stage, cfg, tz, now) {
   if (cfg.channel === "email") {
     if (!r[C["Email"]]) return { coordinator: "No email in the sheet" };
     var sent = emailFacilitator_(r, t, stage, cfg, tz);
-    log_("Email", r[C["Email"]], r, stage, checkInMessage_(r, t, tz, l.yes, l.change, stage === 2), "", sent ? "Sent" : "Failed");
+    log_("Email", r[C["Email"]], r, stage, checkInMessage_(r, t, tz, l.yes, stage === 2), "", sent ? "Sent" : "Failed");
     return sent ? {} : { coordinator: "The email failed" };
   }
 
   // Text
   var to = ukMobile_(r[C["Mobile"]]);
-  var text = smsMessage_(r, t, tz, l.yes, l.change, stage === 2);
+  var text = smsMessage_(r, t, tz, l.yes, stage === 2);
   if (!to) {
     log_("Text", "", r, stage, text, smsSegments_(text), "Not sent: no mobile in the sheet");
     return { coordinator: "No mobile in the sheet" };
@@ -776,14 +801,13 @@ function sendSms_(key, to, text, from) {
 }
 
 /** Short and plain (no emoji or curly quotes), so each text uses as few credits as possible. */
-function smsMessage_(r, t, tz, yesLink, changeLink, reminder) {
+function smsMessage_(r, t, tz, yesLink, reminder) {
   return [
     (reminder ? "Reminder: " : "") + "Hi " + firstName_(r[C["Facilitator"]]) + ". Session " + r[C["Session"]] + ", " +
       r[C["Project"]] + ", " + describeWhen_(t, tz) + ".",
-    "Did it happen? Tap to confirm:",
+    "Tap to confirm it went ahead:",
     yesLink,
-    "Did anything change? Only tap if so:",
-    changeLink,
+    "If anything changed, you can tell us on the same page.",
   ].join("\n");
 }
 
@@ -866,16 +890,15 @@ function dueTimes_(end, cfg, tz) {
 }
 
 /** The message the facilitator gets, by WhatsApp, text or email. */
-function checkInMessage_(r, t, tz, yesLink, changeLink, reminder) {
+function checkInMessage_(r, t, tz, yesLink, reminder) {
   return [
     (reminder ? "Reminder: " : "") + "Hi " + firstName_(r[C["Facilitator"]]) + ". Session " + r[C["Session"]] + ", " +
       r[C["Project"]] + ", " + describeWhen_(t, tz) + ".",
     "",
-    "Did it happen? Tap to confirm:",
+    "Tap to confirm it went ahead:",
     yesLink,
     "",
-    "Did anything change? Only tap this if something was different, like a late start, extra time, travel or a cancellation:",
-    changeLink,
+    "If anything was different, like a late start, extra time, travel or a cancellation, you can tell us on the same page.",
   ].join("\n");
 }
 
@@ -910,15 +933,15 @@ function emailFacilitator_(r, t, stage, cfg, tz) {
   var html =
     "<p>Hi " + esc_(firstName_(r[C["Facilitator"]])) + ",</p>" +
     "<p>Session " + esc_(r[C["Session"]]) + ", " + esc_(r[C["Project"]]) + ", <b>" + esc_(describeWhen_(t, tz)) + "</b>.</p>" +
-    "<p>Did it happen? Tap to confirm:</p>" + button(l.yes, "Yes, it happened", "#15803d") +
-    "<p>Did anything change? Only tap this if something was different:</p>" + button(l.change, "Something changed", "#2d0054");
+    "<p>Tap to confirm it went ahead:</p>" + button(l.yes, "Yes, it went ahead", "#15803d") +
+    "<p>If anything changed, you can tell us on the page that opens.</p>";
   return send_(r[C["Email"]], subject, html, cfg);
 }
 
 function emailReadyList_(ready, cfg, tz) {
   var items = ready.map(function (x) {
     var l = linksFor_(x.r);
-    var link = whatsAppUrl_(x.r[C["Mobile"]], checkInMessage_(x.r, x.t, tz, l.yes, l.change, x.stage === 2));
+    var link = whatsAppUrl_(x.r[C["Mobile"]], checkInMessage_(x.r, x.t, tz, l.yes, x.stage === 2));
     return "<li style=\"margin-bottom:16px\"><b>" + esc_(x.r[C["Facilitator"]]) + "</b>, session " + esc_(x.r[C["Session"]]) +
       " (" + esc_(describeWhen_(x.t, tz)) + ")" + (x.stage === 2 ? ", still no answer" : "") +
       (x.why && x.why !== "send" ? ". " + esc_(x.why) : "") +
@@ -941,7 +964,7 @@ function emailOverdue_(overdue, cfg, tz) {
     var l = linksFor_(o.r);
     return "<li><b>" + esc_(o.r[C["Facilitator"]]) + "</b>, " + esc_(o.r[C["Project"]]) + ", session " +
       esc_(o.r[C["Session"]]) + " (" + esc_(describeWhen_(o.t, tz)) + "). <a href=\"" +
-      esc_(whatsAppUrl_(o.r[C["Mobile"]], checkInMessage_(o.r, o.t, tz, l.yes, l.change, true))) + "\">Chase on WhatsApp</a></li>";
+      esc_(whatsAppUrl_(o.r[C["Mobile"]], checkInMessage_(o.r, o.t, tz, l.yes, true))) + "\">Chase on WhatsApp</a></li>";
   }).join("");
   var html =
     "<p>These sessions still have no answer " + cfg.escalateHours + " hours after they ended:</p><ul>" + items + "</ul>" +
@@ -998,14 +1021,7 @@ function submitCheckIn(key, answer) {
     book_().getSheetByName(TAB.checkIns).appendRow([
       now, r[C["Facilitator"]], r[C["Project"]], r[C["Session"]], s.times.start || s.times.end,
       a.asPlanned ? "Yes, as planned" : "Something changed",
-      a.late || "", a.extra || "",
-      a.moved ? a.moved.date : "", a.moved ? a.moved.start : "", a.moved ? a.moved.end : "",
-      a.cancelled ? CANCELLED_BY[a.cancelled.by] : "", a.cancelled ? a.cancelled.told : "",
-      a.cancelled ? a.cancelled.noticeHours : "",
-      a.travel ? a.travel.amount : "", a.expense ? a.expense.amount : "",
-      safeText_([a.travel ? "Travel: " + a.travel.what : "", a.expense ? "Expense: " + a.expense.what : ""]
-        .filter(String).join("; ")),
-      safeText_(a.notes), s.key,
+      a.what || "", safeText_(a.details || ""), s.key,
     ]);
     s.sheet.getRange(s.row, C["Status"] + 1, 1, 3).setValues([[a.status, now, safeText_(a.summary)]]);
     return { status: a.status, summary: a.summary };
@@ -1021,69 +1037,20 @@ function checkAnswer_(answer, s) {
     if (s.times.start && new Date() < s.times.start) throw new Error("This session hasn't started yet.");
     return { asPlanned: true, status: STATUS.delivered, summary: "As planned" };
   }
-
-  var tz = s.tz;
-  var out = { asPlanned: false };
-  var parts = [];
-  var minutes = function (v, label) {
-    var n = Math.round(Number(v));
-    if (!(n > 0 && n <= 600)) throw new Error("Enter how many minutes for '" + label + "'.");
-    return n;
+  var ticked = answer.changes || [];
+  var picked = CHANGES.filter(function (c) { return ticked.indexOf(c[0]) !== -1; });
+  if (!picked.length) throw new Error("Tick what changed.");
+  var details = String(answer.details || "").trim().slice(0, 1000);
+  if (!details) throw new Error("Add a few words about what changed, for example how late it started or what the travel cost.");
+  var has = function (id) { return ticked.indexOf(id) !== -1; };
+  var what = picked.map(function (c) { return c[1]; }).join(", ");
+  return {
+    asPlanned: false,
+    status: has("cancelled") ? STATUS.cancelled : has("moved") ? STATUS.moved : STATUS.changed,
+    what: what,
+    details: details,
+    summary: what + ": " + details,
   };
-  var money = function (v, label) {
-    var n = Math.round(Number(v) * 100) / 100;
-    if (!(n > 0 && n <= 1000)) throw new Error("Enter an amount in pounds for '" + label + "'.");
-    return n;
-  };
-  var words = function (v, label) {
-    var t = String(v || "").trim().slice(0, 200);
-    if (!t) throw new Error("Say what the " + label + " was for.");
-    return t;
-  };
-
-  if (answer.cancelled) {
-    var by = answer.cancelled.by;
-    if (!CANCELLED_BY[by]) throw new Error("Choose who cancelled.");
-    var told = parseLocal_(answer.cancelled.toldDate, answer.cancelled.toldTime, tz);
-    if (!told) throw new Error("Enter when you were told about the cancellation.");
-    var start = s.times.start || s.times.end;
-    var notice = Math.max(0, Math.round(((start - told) / HOUR) * 10) / 10);
-    var rule = by === "me" ? "not payable" : notice < FULL_PAY_NOTICE_HOURS ? "under 48 hours: payable in full" : "48 hours or more: needs a new date";
-    out.cancelled = { by: by, told: told, noticeHours: notice };
-    parts.push("Cancelled by " + CANCELLED_BY[by] + ", " + notice + " hours' notice (" + rule + ")");
-  } else if (answer.moved) {
-    var day = String(answer.moved.date || "");
-    var from = parseLocal_(day, answer.moved.start, tz);
-    var to = parseLocal_(day, answer.moved.end, tz);
-    if (!from || !to || to <= from) throw new Error("Enter the new date, start and end time.");
-    out.moved = { date: from, start: answer.moved.start, end: answer.moved.end };
-    parts.push("Moved to " + Utilities.formatDate(from, tz, "EEE d MMM") + ", " + answer.moved.start + " to " + answer.moved.end);
-  } else {
-    // Late starts and extra time only make sense if it happened on the day.
-    if (answer.late) {
-      out.late = minutes(answer.late.minutes, "Started late");
-      parts.push("Started " + out.late + " min late");
-    }
-    if (answer.extra) {
-      out.extra = minutes(answer.extra.minutes, "Extra time");
-      parts.push(out.extra + " min extra time");
-    }
-  }
-  if (answer.travel) {
-    out.travel = { amount: money(answer.travel.amount, "Travel"), what: words(answer.travel.what, "travel") };
-    parts.push("Travel £" + out.travel.amount.toFixed(2) + " (" + out.travel.what + ")");
-  }
-  if (answer.expense) {
-    out.expense = { amount: money(answer.expense.amount, "Other expense"), what: words(answer.expense.what, "expense") };
-    parts.push("Expense £" + out.expense.amount.toFixed(2) + " (" + out.expense.what + ")");
-  }
-  if (!parts.length) throw new Error("Tick at least one thing that changed.");
-  out.notes = String(answer.notes || "").trim().slice(0, 1000);
-  if (out.notes) parts.push("Note: " + out.notes);
-
-  out.status = out.cancelled ? STATUS.cancelled : out.moved ? STATUS.moved : STATUS.changed;
-  out.summary = parts.join("; ");
-  return out;
 }
 
 function findSession_(key) {
@@ -1119,8 +1086,7 @@ function publicView_(s, mode) {
     status: String(r[C["Status"]] || ""),
     answeredAt: r[C["Answered at"]] instanceof Date ? Utilities.formatDate(r[C["Answered at"]], s.tz, "EEE d MMM, HH:mm") : "",
     summary: String(r[C["What changed"]] || ""),
-    today: Utilities.formatDate(new Date(), s.tz, "yyyy-MM-dd"),
-    now: Utilities.formatDate(new Date(), s.tz, "HH:mm"),
+    changes: CHANGES,
   };
 }
 

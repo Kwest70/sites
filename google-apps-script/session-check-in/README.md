@@ -1,17 +1,16 @@
 # Session check-ins (Google Sheets + automatic texts)
 
-A small system for any project and any facilitator. Paste in a contract's link, the sheet reads it and makes the sessions. Fifteen minutes after each session, the facilitator gets a text with two links. Nobody has to press send.
+A small system for any project and any facilitator. Paste in a contract's link, the sheet reads it and makes the sessions. Fifteen minutes after each session, the facilitator gets a text with one link. Nobody has to press send.
 
 ```
 Hi Kai. Session 4, 121 Creative Development, Thu 22 Oct, 18:00 to 20:00.
-Did it happen? Tap to confirm:
+Tap to confirm it went ahead:
 https://script.google.com/…/exec?k=…&a=yes
-Did anything change? Only tap if so:
-https://script.google.com/…/exec?k=…&a=change
+If anything changed, you can tell us on the same page.
 ```
 
-- **Link 1** marks the session as delivered the moment it opens. No button to press. The Status cell turns green.
-- **Link 2** opens a short form: started late, ran over, moved, cancelled, travel, other expense. A detail box appears only for what they tick. If nothing changed, they never open it.
+- **Opening the link** marks the session as delivered. There's no button to press, and the Status cell turns green.
+- **Underneath**, the same page asks *Did anything change?* with six tick boxes (started late, ran over, moved, cancelled, travel, other expense), one text box and **Submit**. If nothing changed, they just close the page.
 
 If there's no answer, a reminder text goes at 9am the next day. After 24 hours with no answer the row goes red and the coordinator gets an email.
 
@@ -22,8 +21,8 @@ Everything runs in Google. Texts come from a spare **Android phone** running the
 | Tab | Who fills it | What it holds |
 | --- | --- | --- |
 | **Contracts** | Paste the contract link; the sheet reads the rest | Contract file, notes on what's still needed, facilitator, mobile, project, role, venue, rate, hours, travel, and the session pattern: first session, repeats (weekly or fortnightly), number of sessions, any other dates, start and end time. |
-| **Sessions** | Made from Contracts (you can also type rows in) | One row per session. The script fills in Status, the answer and both personal links. Status turns green for *Delivered*, amber for changes, grey for cancelled, pale yellow once the check-in has gone and red if there's no answer 24 hours after the session ended. Move a session by editing its date or time here. |
-| **Check-ins** | The script | Every answer, with all the detail. Nothing here is ever overwritten, so it's the audit trail. |
+| **Sessions** | Made from Contracts (you can also type rows in) | One row per session. The script fills in Status, the answer and the session's links: the one in the text, and a change link the coordinator can open to record a change for someone. Status turns green for *Delivered*, amber for changes, grey for cancelled, pale yellow once the check-in has gone and red if there's no answer 24 hours after the session ended. Move a session by editing its date or time here. |
+| **Check-ins** | The script | Every answer: the boxes ticked and the facilitator's own words. Nothing here is ever overwritten, so it's the audit trail. |
 | **Message log** | The script | Every text: when, to whom, the exact words, how many texts it used, and whether it was sent. |
 | **Settings** | The coordinator, once | How to send, phone hours, coordinator email and timings. |
 
@@ -99,7 +98,7 @@ This makes its own new sheet. It never touches any other spreadsheet, so use it 
 
 ### The sheet
 
-1. Create a new Google Sheet, for example *Check-ins TEST*.
+1. Create a new Google Sheet, for example *Check-ins TEST*, or open one that already has the tabs.
 2. **Extensions > Apps Script.** Delete what's in `Code.gs` and paste in [`Code.gs`](Code.gs).
 3. Click **+ > HTML**, name it `CheckIn` (no `.html`), and paste in [`CheckIn.html`](CheckIn.html). Save.
 4. **Deploy > New deployment.** Type: **Web app**. Execute as: **Me**. Who has access: **Anyone**. Click **Deploy**, allow the permissions, and copy the link that ends in `/exec`.
@@ -108,19 +107,22 @@ This makes its own new sheet. It never touches any other spreadsheet, so use it 
 
 ### Test it today, with sessions 5 minutes apart
 
-A test contract makes four 3-minute sessions, 5 minutes apart, so you can watch the whole loop in about half an hour instead of waiting a week. There's one in the testing folder on Drive, or copy the Key Terms table above with TIMES *Every 5 minutes from 19:30, 3 minutes each*, SESSIONS *4 sessions* and DATES *Today*.
+**Check-ins > Start a test run** asks for a mobile, then adds four 3-minute sessions, 5 minutes apart, starting in about 2 minutes. They use the first contract's name and project, marked *(test)*, so you can watch the whole loop in about 20 minutes.
 
-1. In the test contract, put your own mobile in **MOBILE** and change **19:30** to about 10 minutes from now.
-2. In **Settings**:
-   - clear **Phone hours**, so texts can go at any time (the usual hours may not cover today)
-   - set **Check-in due** to **1**
-3. Paste the contract's link into **Contracts**, then **Check-ins > Read new contracts**. The note should say *Ready*.
-4. **Check-ins > Make sessions from new contracts.** Four rows appear on **Sessions**.
-5. Wait. The sheet checks every 5 minutes, so each text comes within about 5 minutes of a session ending. **Check-ins > Check for due sessions now** sends anything due straight away.
+Before you start, set two things in **Settings**:
 
-Before the phone is connected, the texts go to the **Message log** marked *TEST MODE*. Copy link 1 from the Sessions tab into your phone's browser to see the Status cell go green, and try link 2 for the form. Once the phone is connected, the same texts reach your mobile.
+- clear **Phone hours**, so texts can go at any time
+- set **Check-in due** to **1**
 
-Answer every test session, or a reminder text goes at 9am tomorrow. When you've finished, put **Phone hours** and **Check-in due** back to how they were.
+If anything else is missing, such as the Web app URL or the phone, the test run says so.
+
+The sheet checks every 5 minutes, so each text comes within about 5 minutes of a session ending. **Check-ins > Check for due sessions now** sends anything due straight away. Then watch the **Sessions** tab. Status turns green when the link is opened, amber or grey after a change is submitted, and each answer appears in **Check-ins**.
+
+Before the phone is connected, the texts go to the **Message log** marked *TEST MODE*. Open a link from the **Yes link** column on your phone instead. Once the phone is connected, the texts reach your mobile.
+
+Answer every test session, or a reminder text goes at 9am the next day. When you've finished, put **Phone hours** and **Check-in due** back to how they were.
+
+A contract can make quick test sessions too: TIMES *Every 5 minutes from 19:30, 3 minutes each*, SESSIONS *4 sessions* and DATES *Today*.
 
 ### The phone
 
@@ -134,7 +136,7 @@ Texts come from the phone's own number, so save it in your facilitators' contact
 ## Good to know
 
 - **Links are private.** Each session gets a random key. The page only shows that one session and never shows a phone number or email.
-- **Tapping link 1 twice, or after link 2, is safe.** It never overwrites an answer already given.
+- **Opening the link twice is safe.** It never overwrites changes already sent. To replace an answer on purpose, the page has *It went ahead as planned* and *Change this answer*.
 - **Mobile numbers** can be typed as `07700 900123`, `+44 7700 900123`, or even with the leading 0 dropped by Sheets.
 - **Link previews.** The page records "yes" with JavaScript after it opens, so a phone building a link preview shouldn't mark anything delivered. Check this on the first live test.
 - **Daily email limits.** Google allows 100 email recipients a day on a personal Gmail account and 1,500 on Google Workspace. Coordinator emails are batched.
